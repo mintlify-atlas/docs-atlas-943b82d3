@@ -1,0 +1,128 @@
+---
+title: "Slash commands"
+description: "Complete reference for all in-session slash commands available in the Hermes CLI and messaging gateway."
+---
+
+Slash commands are typed directly into the Hermes prompt during an active session. Type `/help` at any time to see available commands.
+
+<Note>
+Some commands are only available in specific contexts. Commands marked **CLI only** work in the interactive terminal. Commands marked **Gateway only** work via messaging platforms (Telegram, Discord, WhatsApp, Slack, Signal).
+</Note>
+
+---
+
+## Session
+
+| Command | Aliases | Args | Availability | Description |
+|---------|---------|------|--------------|-------------|
+| `/new` | `/reset` | | Both | Start a fresh session (new session ID and empty history) |
+| `/clear` | | | CLI only | Clear the screen and start a new session |
+| `/history` | | | CLI only | Show the full conversation history for the current session |
+| `/save` | | | CLI only | Save the current conversation to disk |
+| `/retry` | | | Both | Resend the last user message to the agent |
+| `/undo` | | | Both | Remove the last user/assistant exchange from history |
+| `/title` | | `[name]` | Both | Set a title for the current session |
+| `/compress` | | | Both | Manually trigger context compression |
+| `/rollback` | | `[number]` | Both | List filesystem checkpoints or restore a previous snapshot |
+| `/stop` | | | Both | Kill all running background processes |
+| `/background` | `/bg` | `<prompt>` | Both | Run a prompt as a background task |
+| `/resume` | | `[name]` | Both | Resume a previously named session |
+| `/status` | | | Gateway only | Show current session info |
+| `/sethome` | `/set-home` | | Gateway only | Set this chat as the home channel |
+
+### Notes
+
+- `/new` and `/reset` are aliases — both wipe conversation history and generate a new session ID.
+- `/rollback` lists available filesystem snapshots when called with no argument. Pass a number to restore that snapshot.
+- `/background <prompt>` runs the prompt in a parallel agent loop. Gateway platforms push status updates as the background task progresses.
+- `/status` is gateway-only — in the CLI, session info is shown in the banner.
+
+---
+
+## Configuration
+
+| Command | Aliases | Args | Availability | Description |
+|---------|---------|------|--------------|-------------|
+| `/config` | | | CLI only | Show the current configuration |
+| `/model` | | `[name]` | Both | Show the current model or switch to a different one |
+| `/provider` | | | Both | Show available providers and the currently active provider |
+| `/prompt` | | `[text]` | CLI only | View or set a custom system prompt. Use `/prompt clear` to remove it |
+| `/personality` | | `[name]` | Both | Switch to a predefined personality |
+| `/statusbar` | `/sb` | | CLI only | Toggle the context/model status bar |
+| `/verbose` | | | CLI only | Cycle tool progress display level: `off` → `new` → `all` → `verbose` |
+| `/reasoning` | | `[level\|show\|hide]` | Both | Manage reasoning effort and display |
+| `/skin` | | `[name]` | CLI only | Show or change the display skin/theme |
+| `/voice` | | `[on\|off\|tts\|status]` | Both | Toggle voice mode or control TTS |
+
+### `/model` usage
+
+```
+/model                          # Show current model
+/model anthropic/claude-opus-4.6   # Switch model directly
+/model openrouter:               # Tab-complete provider prefix
+```
+
+The `/model` command supports two-stage tab completion: type a provider name followed by `:` to see models for that provider.
+
+### `/reasoning` levels
+
+Accepted values for `/reasoning [level]`: `none`, `low`, `minimal`, `medium`, `high`, `xhigh`. Use `/reasoning show` or `/reasoning hide` to toggle display of the reasoning block.
+
+---
+
+## Tools & Skills
+
+| Command | Aliases | Args | Availability | Description |
+|---------|---------|------|--------------|-------------|
+| `/tools` | | `[list\|disable\|enable] [name...]` | CLI only | Manage enabled tools for the current session |
+| `/toolsets` | | | CLI only | List available toolsets and their tools |
+| `/skills` | | `[search\|browse\|inspect\|install]` | CLI only | Search, browse, install, and manage skill documents |
+| `/cron` | | `[subcommand]` | CLI only | Manage scheduled tasks (list, add, edit, pause, resume, run, remove) |
+| `/reload-mcp` | `/reload_mcp` | | Both | Reload MCP server connections from config |
+| `/browser` | | `[connect\|disconnect\|status]` | CLI only | Connect browser tools to a live Chrome instance via Chrome DevTools Protocol |
+| `/plugins` | | | CLI only | List installed plugins and their status |
+
+### Skill slash commands
+
+Installed skills also become slash commands. For example, a skill named `research-mode` can be activated with `/research-mode`. Skill commands inject the skill document as a user message at the start of your next query.
+
+Use `/skills list` to see all installed skills, or `/skills browse` to discover new ones.
+
+---
+
+## Info
+
+| Command | Aliases | Args | Availability | Description |
+|---------|---------|------|--------------|-------------|
+| `/help` | | | Both | Show all available commands |
+| `/usage` | | | Both | Show token usage stats for the current session |
+| `/insights` | | `[days]` | Both | Show usage insights and analytics |
+| `/platforms` | `/gateway` | | CLI only | Show gateway and messaging platform status |
+| `/paste` | | | CLI only | Check clipboard for an image and attach it to the next message |
+| `/update` | | | Gateway only | Update Hermes Agent to the latest version |
+
+---
+
+## Exit
+
+| Command | Aliases | Availability | Description |
+|---------|---------|--------------|-------------|
+| `/quit` | `/exit`, `/q` | CLI only | Exit the CLI |
+
+---
+
+## Gateway-only commands
+
+The following commands are only available via messaging platforms (Telegram, Discord, WhatsApp, Slack, Signal):
+
+| Command | Description |
+|---------|-------------|
+| `/status` | Show current session info |
+| `/sethome` / `/set-home` | Set this chat as the home channel for notifications |
+| `/update` | Update Hermes Agent to the latest version |
+
+## CLI-only commands
+
+The following commands are only available in the interactive CLI:
+
+`/clear`, `/history`, `/save`, `/config`, `/prompt`, `/statusbar`, `/verbose`, `/skin`, `/tools`, `/toolsets`, `/skills`, `/cron`, `/browser`, `/plugins`, `/platforms`, `/paste`, `/quit`

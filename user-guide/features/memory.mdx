@@ -1,0 +1,98 @@
+---
+title: "Memory"
+description: "Persistent memory, user profiles, MEMORY.md and USER.md, and the Honcho integration"
+---
+
+Hermes maintains persistent memory across sessions. Rather than relying on you to re-explain your preferences and context every time, it remembers what matters and builds on it.
+
+## How memory works
+
+There are two memory files, both stored in `~/.hermes/memories/`:
+
+| File | Purpose |
+|------|--------|
+| `MEMORY.md` | The agent's personal notes — environment facts, project conventions, tool quirks, things learned |
+| `USER.md` | Your profile — name, role, preferences, communication style, workflow habits |
+
+Both files are loaded once at session start and injected into the system prompt as a frozen snapshot. Mid-session writes update the files on disk immediately but do not change the active system prompt — this preserves Anthropic prompt caching for the entire session. The snapshot refreshes on the next session start.
+
+Entries are separated by `§` (section sign) and have character limits to keep the system prompt compact.
+
+## Memory locations
+
+```
+~/.hermes/
+├── memories/
+│   ├── MEMORY.md    # agent notes
+│   └── USER.md      # user profile
+├── SOUL.md          # agent persona
+└── config.yaml
+```
+
+## Periodic memory nudges
+
+Hermes proactively notices when important information should be saved. After a conversation where you share preferences or the agent discovers something worth keeping, it will offer to write a memory entry. You can also trigger this manually:
+
+```
+Remember that I prefer TypeScript over JavaScript
+```
+
+Or use the `memory` tool directly:
+
+```
+Save this to memory: project uses pnpm, not npm
+```
+
+## FTS5 session search
+
+Past conversations are stored in a SQLite database with FTS5 full-text search. The `session_search` tool lets the agent search across all past sessions by keyword, summarize results with an LLM, and surface relevant context from previous work.
+
+You can trigger a search from a slash command or by asking the agent:
+
+```
+What did we work on last week regarding the auth system?
+```
+
+The agent will search past sessions, retrieve relevant excerpts, and synthesize a summary.
+
+## Honcho dialectic user modeling
+
+[Honcho](https://github.com/plastic-labs/honcho) is an AI-native memory system that builds a persistent model of who you are across sessions using dialectic reasoning — it asks clarifying questions and refines its understanding of your preferences, goals, and context over time.
+
+To enable Honcho:
+
+1. Set the `HONCHO_API_KEY` environment variable in `~/.hermes/.env`
+2. Honcho tools (`honcho_context`, `honcho_profile`, `honcho_search`, `honcho_conclude`) activate automatically
+
+Honcho memory complements the built-in `MEMORY.md`/`USER.md` system — they can be used together.
+
+## SOUL.md
+
+`~/.hermes/SOUL.md` is the agent's persona file. It defines Hermes's character, communication style, and behavioral defaults. Edit it to adjust how the agent presents itself:
+
+```bash
+hermes config edit  # opens your editor
+# or edit directly:
+nano ~/.hermes/SOUL.md
+```
+
+A default SOUL.md is seeded on first run. If you're migrating from OpenClaw, `hermes claw migrate` can import your existing SOUL.md.
+
+## Memory best practices
+
+<Tip>
+Keep memory entries compact and factual. The memory store has a character limit (2200 chars for MEMORY.md, 1375 chars for USER.md). Long entries crowd out other useful facts.
+</Tip>
+
+- **Do save**: preferences, environment facts, project conventions, corrections, tool quirks
+- **Don't save**: session outcomes, completed-work logs, temporary task state (use `session_search` to recall those)
+- **For procedures**: use skills instead of memory
+- **For user identity**: prefer USER.md over MEMORY.md
+
+## `/insights` command
+
+Run `/insights` (or `/insights --days 30`) to see usage analytics for your sessions — turn counts, tool usage frequency, session lengths, and more. This helps you understand how you're using the agent and identify patterns.
+
+<Note>
+All memory data is stored locally in `~/.hermes/`. Nothing is sent to external servers unless you explicitly enable Honcho, which uses the Honcho API. The `HERMES_HOME` environment variable lets you relocate the storage directory.
+</Note>

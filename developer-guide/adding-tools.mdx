@@ -1,0 +1,210 @@
+---
+title: "Adding tools"
+description: "How to create new tools and register them with the tool registry"
+---
+
+Tools are the actions the agent can take — terminal commands, file reads, web searches, and so on. Each tool is a self-contained Python module that registers itself with the central registry at import time.
+
+<Note>
+Before writing a new tool, ask: should this be a **skill** instead? If the capability can be expressed as instructions plus shell commands using existing tools, a skill is almost always the better choice. Tools are for capabilities that require end-to-end Python integration, custom auth flows, binary data, or streaming that can't go through the terminal.
+</Note>
+
+## The 3-file requirement
+
+Adding a tool requires changes in exactly **3 files**:
+
+1. Create `tools/your_tool.py` — the tool implementation and registration
+2. Add an import in `model_tools.py` `_discover_tools()` list
+3. Add to `toolsets.py` — either `_HERMES_CORE_TOOLS` or a new toolset
+
+<Steps>
+
+<Step title="Create tools/your_tool.py">
+
+Each tool file co-locates its schema, handler function, availability check, and registry call. The registry handles schema collection, dispatch, availability checking, and error wrapping.
+
+```python
+import json
+import os
+from tools.registry import registry
+
+
+def check_requirements() -> bool:
+    """Return True if this tool's dependencies are available."""
+    return bool(os.getenv("EXAMPLE_API_KEY"))
+
+
+def example_tool(param: str, task_id: str = None) -> str:
+    """Handler. Must return a JSON string."""
+    result = do_work(param)
+    return json.dumps({"success": True, "data": result})
+
+
+EXAMPLE_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "example_tool",
+        "description": "What this tool does and when the agent should use it.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "param": {"type": "string", "description": "What param is"},
+            },
+            "required": ["param"],
+        },
+    },
+}
+
+
+registry.register(
+    name="example_tool",
+    toolset="example",
+    schema=EXAMPLE_TOOL_SCHEMA,
+    handler=lambda args, **kw: example_tool(
+        param=args.get("param", ""),
+        task_id=kw.get("task_id"),
+    ),
+    check_fn=check_requirements,
+    requires_env=["EXAMPLE_API_KEY"],
+)
+```
+
+<Warning>
+All tool handlers **must return a JSON string**. If the handler returns a plain string, Python dict, or raises an unhandled exception, the agent will receive an error. Wrap all return values in `json.dumps()`.
+</Warning>
+
+#### `check_fn`
+
+The `check_fn` parameter is a zero-argument callable that returns `True` when the tool is available. The registry calls it before returning schemas — tools whose check returns `False` are silently excluded from the tool list.
+
+Use `check_fn` to gate a tool on environment variable availability:
+
+```python
+def check_requirements() -> bool:
+    return bool(os.getenv("MY_API_KEY"))
+```
+
+Or on a Python package being installed:
+
+```python
+def check_requirements() -> bool:
+    try:
+        import some_package
+        return True
+    except ImportError:
+        return False
+```
+
+#### `requires_env`
+
+The `requires_env` list tells the setup wizard and `hermes doctor` which environment variables this tool needs. It does not gate availability on its own — that is `check_fn`'s job.
+
+```python
+registry.register(
+    ...
+    requires_env=["EXAMPLE_API_KEY", "EXAMPLE_BASE_URL"],
+)
+```
+
+</Step>
+
+<Step title="Add import in model_tools.py">
+
+Open `model_tools.py` and add your module to the `_modules` list inside `_discover_tools()`:
+
+```python
+def _discover_tools():
+    _modules = [
+        # ... existing modules ...
+        "tools.example_tool",   # <-- add here
+    ]
+    import importlib
+    for mod_name in _modules:
+        try:
+            importlib.import_module(mod_name)
+        except Exception as e:
+            logger.warning("Could not import tool module %s: %s", mod_name, e)
+```
+
+The import is wrapped in a try/except so optional tools with missing dependencies don't prevent other tools from loading.
+
+</Step>
+
+<Step title="Add to toolsets.py">
+
+Open `toolsets.py` and add your tool to the appropriate toolset.
+
+**To add to the core toolset** (available on all platforms — CLI, Telegram, Discord, etc.), add to `_HERMES_CORE_TOOLS`:
+
+```python
+_HERMES_CORE_TOOLS = [
+    # ... existing tools ...
+    "example_tool",   # <-- add here
+]
+```
+
+**To create a new named toolset**, add an entry to the `TOOLSETS` dict:
+
+```python
+TOOLSETS = {
+    # ... existing toolsets ...
+    "example": {
+        "description": "Example toolset for demonstration purposes",
+        "tools": ["example_tool"],
+        "includes": [],   # optionally include other toolset names
+    },
+}
+```
+
+</Step>
+
+</Steps>
+
+## Tool schema format
+
+Tool schemas follow the OpenAI function calling format. The registry wraps schemas in `{"type": "function", "function": ...}` when returning definitions to the agent loop.
+
+```python
+MY_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "my_tool",
+        "description": "What this tool does and when the agent should use it.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "param1": {
+                    "type": "string",
+                    "description": "What param1 is"
+                },
+                "param2": {
+                    "type": "integer",
+                    "description": "What param2 is",
+                    "default": 10
+                },
+            },
+            "required": ["param1"],
+        },
+    },
+}
+```
+
+The `description` field of each parameter is critical — the agent uses it to decide what values to pass. Be precise about units, formats, and constraints.
+
+## Agent-level tools
+
+Some tools are intercepted by the agent loop in `run_agent.py` **before** `handle_function_call()` is called. These tools need access to agent-level state (like `TodoStore` or `MemoryStore`) that the registry doesn't hold.
+
+Current agent-level tools: `todo`, `memory`, `session_search`, `delegate_task`.
+
+If your tool needs access to the agent's own state, follow the pattern in `tools/todo_tool.py`. The tool's schema is still registered with the registry (so it appears in the model's tool list), but the actual dispatch is handled by `run_agent.py`.
+
+## Registry internals
+
+The `ToolRegistry` singleton in `tools/registry.py` is the backbone of the tool system:
+
+- `registry.register()` — called at module import time by each tool file
+- `registry.get_definitions(tool_names)` — returns filtered OpenAI-format schemas (runs `check_fn` per tool)
+- `registry.dispatch(name, args, **kwargs)` — executes a tool handler, bridges async handlers automatically, catches and formats exceptions
+
+The registry is imported first; all tool files import from it. This makes the dependency chain strictly acyclic.

@@ -1,0 +1,164 @@
+---
+title: "Tools reference"
+description: "Complete list of all built-in tools with descriptions and API key requirements."
+---
+
+All tools listed here are part of `_HERMES_CORE_TOOLS` and are available in the `hermes-cli` and all platform presets. Tools with unsatisfied requirements are silently excluded from the agent's tool list at startup.
+
+Run `hermes doctor` to check which tools are active.
+
+---
+
+## Web
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `web_search` | Search the web and return relevant results. Supports multiple backends (Parallel, Firecrawl, Tavily). | `PARALLEL_API_KEY`, `FIRECRAWL_API_KEY`, or `TAVILY_API_KEY` |
+| `web_extract` | Extract and summarize content from a URL. Uses an auxiliary LLM to produce a clean text summary. | Same as `web_search` |
+
+---
+
+## Terminal & process
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `terminal` | Execute shell commands in the configured backend (local, SSH, Docker, Modal, etc.). Supports background execution with `background=true` and `check_interval`. | None |
+| `process` | Manage background processes: list running processes, check status, stream output, or kill a process by ID. | None |
+
+<Note>
+Dangerous commands (e.g. `rm -rf`, `curl | bash`) trigger an approval prompt unless `approvals.mode` is `off` or the command matches `command_allowlist`.
+</Note>
+
+---
+
+## File operations
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `read_file` | Read a file from the filesystem. Supports path expansion and binary file detection. | None |
+| `write_file` | Write content to a file. Creates parent directories as needed. | None |
+| `patch` | Apply targeted edits to a file using fuzzy string matching. Safer than full rewrites for small changes. | None |
+| `search_files` | Search file contents by regex pattern and/or list files matching a glob. Returns matches with line numbers. | None |
+
+---
+
+## Vision & media
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `vision_analyze` | Analyze an image and return a description or answer a question about it. Passes the image to an auxiliary multimodal model. | `OPENROUTER_API_KEY` or multimodal provider |
+| `image_generate` | Generate an image from a text prompt using FLUX via FAL.ai. Returns the image URL. | `FAL_KEY` |
+| `text_to_speech` | Convert text to audio. Supports Edge TTS (free), ElevenLabs (premium), OpenAI TTS, and NeuTTS (local). | None for Edge TTS; `ELEVENLABS_API_KEY` or `VOICE_TOOLS_OPENAI_KEY` for premium |
+
+---
+
+## Browser automation
+
+Browser tools control a Chromium browser session. Local browser works out of the box; cloud browser requires Browserbase credentials.
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `browser_navigate` | Navigate to a URL in the browser. | None (local); `BROWSERBASE_API_KEY` + `BROWSERBASE_PROJECT_ID` (cloud) |
+| `browser_snapshot` | Take a screenshot of the current browser page and return it as a vision-ready image. | Same as above |
+| `browser_click` | Click an element on the page identified by a selector or coordinates. | Same |
+| `browser_type` | Type text into an input element. | Same |
+| `browser_scroll` | Scroll the page up, down, or to a specific position. | Same |
+| `browser_back` | Navigate back in browser history. | Same |
+| `browser_press` | Press a key (e.g. `Enter`, `Escape`, `Tab`). | Same |
+| `browser_close` | Close the current browser session. | Same |
+| `browser_get_images` | Extract all images from the current page. | Same |
+| `browser_vision` | Analyze the current browser screenshot using an auxiliary vision model. | Same + multimodal provider |
+| `browser_console` | Read the browser console log (JavaScript errors, warnings, and output). | Same |
+
+<Tip>
+Use `/browser connect` in the CLI to attach to a running Chrome instance via CDP (Chrome DevTools Protocol) instead of launching a new session.
+</Tip>
+
+---
+
+## Code & delegation
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `execute_code` | Run a Python script that calls Hermes tools via an internal RPC interface. Intermediate tool results stay out of the LLM context window, reducing token usage for bulk operations. | None |
+| `delegate_task` | Spawn a child agent with isolated context and a specified toolset. Supports single tasks and batches of up to 3 parallel subagents. | None |
+
+---
+
+## Planning
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `todo` | In-session task planning and tracking. Create, update, and check off tasks. State is reset with `/new`. | None |
+| `memory` | Read and write persistent memory across sessions. Two stores: `MEMORY.md` (agent notes) and `USER.md` (user profile). Both are injected into the system prompt at startup. | None |
+
+---
+
+## Skills
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `skills_list` | List all installed skill documents available in `~/.hermes/skills/`. | None |
+| `skill_view` | Read the content of a specific skill document. | None |
+| `skill_manage` | Create, edit, rename, or delete skill documents. | None |
+
+Installed skills also become slash commands automatically (e.g. a skill named `code-review` activates via `/code-review`).
+
+---
+
+## Session
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `session_search` | Search past conversations by keyword using FTS5 full-text search. Returns matching sessions with AI-generated summaries. | Auxiliary LLM (auto-resolved) |
+
+---
+
+## Communication
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `send_message` | Send a message to a platform (Telegram, Discord, Slack, etc.) from within a session. Gated on the gateway being active. | Gateway + platform token |
+| `clarify` | Ask the user a clarifying question — supports multiple-choice or open-ended prompts. Blocks the agent loop until the user responds. | None |
+
+---
+
+## Scheduling
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `cronjob` | Create, list, update, pause, resume, run, and remove scheduled tasks from within a session. | None |
+
+---
+
+## Honcho
+
+Honcho tools require `HONCHO_API_KEY` and a configured `~/.honcho/config.json`. Run `hermes honcho setup` to configure.
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `honcho_context` | Retrieve the Honcho session context for the current user — a structured summary of past interactions. | `HONCHO_API_KEY` |
+| `honcho_profile` | Read or update the user's Honcho profile (preferences, facts, communication style). | `HONCHO_API_KEY` |
+| `honcho_search` | Search the Honcho memory store for relevant past facts. | `HONCHO_API_KEY` |
+| `honcho_conclude` | Save a summary of the current session to Honcho at conversation end. | `HONCHO_API_KEY` |
+
+---
+
+## Home Assistant
+
+Home Assistant tools require a `HASS_TOKEN` (long-lived access token) and `HASS_URL` pointing to your Home Assistant instance.
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `ha_list_entities` | List all entities in Home Assistant, optionally filtered by domain or area. | `HASS_TOKEN`, `HASS_URL` |
+| `ha_get_state` | Get the current state and attributes of a Home Assistant entity. | `HASS_TOKEN`, `HASS_URL` |
+| `ha_list_services` | List available Home Assistant services for a domain. | `HASS_TOKEN`, `HASS_URL` |
+| `ha_call_service` | Call a Home Assistant service (e.g. `light.turn_on`, `switch.toggle`). | `HASS_TOKEN`, `HASS_URL` |
+
+---
+
+## AI
+
+| Tool | Description | Required keys |
+|------|-------------|---------------|
+| `mixture_of_agents` | Aggregate responses from multiple models in parallel for stronger reasoning and answer quality. | `OPENROUTER_API_KEY` |

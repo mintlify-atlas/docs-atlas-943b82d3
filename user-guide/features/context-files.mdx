@@ -1,0 +1,103 @@
+---
+title: "Context files"
+description: "Project-level instructions that shape every conversation in a directory"
+---
+
+Context files are project-specific instruction files that Hermes automatically loads when you run it in a directory. They let you embed permanent project context — coding standards, architecture notes, deployment procedures — directly in your repository.
+
+## What context files are
+
+When Hermes starts, it walks up the directory tree looking for files named `AGENTS.md`, `CLAUDE.md`, or similar. Any files found are injected into the agent's context at the start of the conversation.
+
+This means every conversation you have in a project directory automatically includes your project's rules and context — without you needing to repeat them.
+
+## Supported file names
+
+Hermes looks for these files (in this order):
+
+1. `AGENTS.md`
+2. `CLAUDE.md`
+
+Files in parent directories are also loaded, with more-local files taking precedence. A file in `~/projects/myapp/` is loaded when you run Hermes anywhere inside that directory tree.
+
+## What to put in context files
+
+<Tip>
+Focus on things that are true for *every* session in this project: conventions, constraints, architecture decisions, and deployment notes. Don't put one-off instructions or task-specific context here.
+</Tip>
+
+Good context file contents:
+
+- **Project structure**: which directories contain what, how the codebase is organized
+- **Coding standards**: language version, linting rules, naming conventions, file structure
+- **Development workflow**: how to run tests, build the project, deploy
+- **Architecture decisions**: why certain choices were made, what to avoid
+- **External services**: which APIs are in use, where credentials come from
+- **Known issues**: gotchas the agent should be aware of
+
+## Example AGENTS.md
+
+```markdown
+# My Project — Agent Instructions
+
+## Project structure
+
+- `src/` — TypeScript source
+- `tests/` — Jest test suite
+- `infra/` — Terraform for AWS deployment
+- `scripts/` — Build and deployment helpers
+
+## Coding standards
+
+- Use TypeScript strict mode
+- All async functions must handle errors explicitly
+- Use `pnpm`, not `npm` or `yarn`
+- Follow the existing module structure — don't create top-level files
+
+## Testing
+
+```bash
+pnpm test              # run all tests
+pnpm test:watch        # watch mode
+pnpm test <file>       # run a specific file
+```
+
+Always run tests before committing. CI will fail on lint errors.
+
+## Deployment
+
+Deploy via GitHub Actions — don't push to `main` directly.
+Staging: push to `staging` branch.
+Production: create a PR, get one review, merge.
+
+## Known issues
+
+- The `auth` module has a circular dependency issue being tracked in #234 — don't add imports to it
+- Database migrations must be run manually: `pnpm migrate`
+```
+
+## File precedence
+
+When multiple context files are found (e.g., one in `~/` and one in `~/projects/myapp/`), they are all loaded. More specific (deeper) files are appended after more general ones, so project-level rules naturally override or extend global rules.
+
+## Skipping context files
+
+To start a session without loading context files, use the `skip_context_files` config option or pass the flag at startup:
+
+```bash
+# In ~/.hermes/config.yaml:
+agent:
+  skip_context_files: true
+```
+
+Or per-session via the AIAgent API:
+
+```python
+agent = AIAgent(skip_context_files=True)
+```
+
+This is useful when you're working outside a project directory and don't want to inherit context from parent directories.
+
+<Tip>
+Commit your `AGENTS.md` to version control. It documents your workflow conventions for your whole team, and any AI agent that supports the `AGENTS.md` standard will benefit from it automatically.
+</Tip>

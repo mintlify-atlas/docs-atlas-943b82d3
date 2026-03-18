@@ -1,0 +1,212 @@
+---
+title: "Migrating from OpenClaw"
+description: "Import your OpenClaw settings, memories, skills, and API keys into Hermes"
+---
+
+If you're coming from OpenClaw, Hermes can automatically import your settings, memories, skills, and API keys. The migration preserves your persona file, conversation memories, user-created skills, and platform configuration so you can pick up where you left off.
+
+## What gets migrated
+
+| What | Description |
+|------|-------------|
+| **SOUL.md** | Your persona file — the agent's identity and behavior guidelines |
+| **Memories** | `MEMORY.md` and `USER.md` persistent memory entries |
+| **Skills** | User-created skills, imported to `~/.hermes/skills/openclaw-imports/` |
+| **Command allowlist** | Approval patterns for dangerous command detection |
+| **Messaging settings** | Platform configs, allowed users, working directory |
+| **API keys** | Allowlisted secrets (Telegram, OpenRouter, OpenAI, Anthropic, ElevenLabs) |
+| **TTS assets** | Workspace audio files |
+| **Workspace instructions** | `AGENTS.md` (with `--workspace-target` flag) |
+
+## Path mappings
+
+The migration script translates OpenClaw's directory layout to Hermes equivalents:
+
+| OpenClaw path | Hermes path |
+|---------------|-------------|
+| `~/.openclaw/SOUL.md` | `~/.hermes/SOUL.md` |
+| `~/.openclaw/memories/MEMORY.md` | `~/.hermes/memories/MEMORY.md` |
+| `~/.openclaw/memories/USER.md` | `~/.hermes/memories/USER.md` |
+| `~/.openclaw/skills/` | `~/.hermes/skills/openclaw-imports/` |
+| `~/.openclaw/config.yaml` | `~/.hermes/config.yaml` (merged) |
+| `~/.openclaw/.env` | `~/.hermes/.env` (allowlisted keys only) |
+| `~/.openclaw/approval_patterns` | `~/.hermes/approval_patterns` |
+
+## Automatic detection
+
+The setup wizard (`hermes setup`) automatically detects `~/.openclaw` during first-time setup and offers to run the migration before configuration begins. This is the easiest path if you're installing Hermes for the first time on a machine that already has OpenClaw.
+
+## Manual migration
+
+<Steps>
+
+<Step title="Preview what will be migrated">
+
+Run a dry run first to see exactly what the migration will do without making any changes:
+
+```bash
+hermes claw migrate --dry-run
+```
+
+The output lists every item that would be migrated, skipped, or flagged as a conflict.
+
+</Step>
+
+<Step title="Run the migration">
+
+Run the full interactive migration:
+
+```bash
+hermes claw migrate
+```
+
+The interactive mode shows migration settings and asks for confirmation before proceeding. It detects `~/.openclaw` automatically.
+
+To migrate without secrets (API keys, tokens):
+
+```bash
+hermes claw migrate --preset user-data
+```
+
+To overwrite existing Hermes files when there are conflicts:
+
+```bash
+hermes claw migrate --overwrite
+```
+
+</Step>
+
+<Step title="Review the results">
+
+The migration report shows:
+- Items migrated successfully
+- Conflicts (existing Hermes files that were skipped)
+- Errors
+
+If API keys were skipped (the default unless you used `--preset full`), add them manually:
+
+```bash
+hermes config set OPENROUTER_API_KEY sk-or-v1-...
+```
+
+</Step>
+
+<Step title="Verify the migration">
+
+Run the health check to confirm everything is working:
+
+```bash
+hermes doctor
+hermes chat -q "Hello"
+```
+
+</Step>
+
+</Steps>
+
+## Migration commands reference
+
+```bash
+# Interactive full migration (includes API keys)
+hermes claw migrate
+
+# Preview only — no files modified
+hermes claw migrate --dry-run
+
+# Migrate user data without secrets
+hermes claw migrate --preset user-data
+
+# Overwrite existing conflicts
+hermes claw migrate --overwrite
+
+# Migrate from a non-standard OpenClaw path
+hermes claw migrate --source /path/to/.openclaw
+
+# Full migration with secrets, overwrite conflicts
+hermes claw migrate --preset full --overwrite
+```
+
+## Migrated skills
+
+User-created skills from OpenClaw are imported into a dedicated subdirectory:
+
+```
+~/.hermes/skills/openclaw-imports/
+├── my-skill/
+│   └── SKILL.md
+└── another-skill/
+    └── SKILL.md
+```
+
+This keeps them separate from bundled Hermes skills and hub-installed skills. You can move them to a different directory under `~/.hermes/skills/` if you prefer a different organization.
+
+## Agent-guided migration
+
+For a more interactive experience, you can use the `openclaw-migration` skill, which provides agent-guided migration with explanations and dry-run previews at each step:
+
+```bash
+hermes chat -q "Use the openclaw-migration skill to help me migrate from OpenClaw"
+```
+
+The skill walks you through each migration item, explains what will happen, and lets you approve or skip individual items.
+
+<Note>
+The `openclaw-migration` skill is included in the `optional-skills/migration/` directory of the Hermes repository. It is not activated by default but can be discovered via `hermes skills browse` and installed with `hermes skills install`.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+
+<Accordion title="OpenClaw directory not found">
+
+If the migration reports that `~/.openclaw` doesn't exist, specify the path explicitly:
+
+```bash
+hermes claw migrate --source /path/to/your/.openclaw
+```
+
+</Accordion>
+
+<Accordion title="API keys were not migrated">
+
+By default, `hermes claw migrate` uses the `full` preset which includes API keys. However, if you used `--preset user-data`, keys are excluded. Add them manually:
+
+```bash
+hermes config set OPENROUTER_API_KEY sk-or-v1-...
+hermes config set ANTHROPIC_API_KEY sk-ant-...
+```
+
+Or run the migration again with secrets enabled:
+
+```bash
+hermes claw migrate --migrate-secrets
+```
+
+</Accordion>
+
+<Accordion title="Skills not loading after migration">
+
+Migrated skills land in `~/.hermes/skills/openclaw-imports/`. Verify the directory exists and contains your skills:
+
+```bash
+ls ~/.hermes/skills/openclaw-imports/
+```
+
+Skills in subdirectories of `~/.hermes/skills/` are automatically discovered. If a skill isn't showing up, check that its `SKILL.md` has valid frontmatter.
+
+</Accordion>
+
+<Accordion title="Conflicts were skipped">
+
+When an existing Hermes file conflicts with a migrated OpenClaw file, the migration skips it by default. To overwrite:
+
+```bash
+hermes claw migrate --overwrite
+```
+
+Or resolve conflicts manually by editing the files in `~/.hermes/`.
+
+</Accordion>
+
+</AccordionGroup>

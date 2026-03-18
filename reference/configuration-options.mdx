@@ -1,0 +1,485 @@
+---
+title: "Configuration options"
+description: "Complete reference for all settings in ~/.hermes/config.yaml."
+---
+
+Hermes reads its configuration from `~/.hermes/config.yaml`. Missing keys fall back to built-in defaults. The file is created automatically on first run.
+
+```bash
+# Edit in $EDITOR
+hermes config edit
+
+# Set a single value
+hermes config set model anthropic/claude-opus-4.6
+hermes config set terminal.backend docker
+
+# Validate and migrate
+hermes config migrate
+```
+
+<Note>
+The current config schema version is **10**. Running `hermes config migrate` adds any new fields introduced since your last update and bumps the `_config_version` key.
+</Note>
+
+## Complete example
+
+```yaml
+model:
+  default: "anthropic/claude-opus-4.6"
+  provider: "auto"                  # auto | openrouter | nous | zai | kimi-coding | ...
+  base_url: "https://openrouter.ai/api/v1"
+
+terminal:
+  backend: "local"                  # local | ssh | docker | singularity | modal | daytona
+  cwd: "."
+  timeout: 180
+
+agent:
+  max_turns: 90
+  reasoning_effort: "medium"        # none | low | minimal | medium | high | xhigh
+
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+
+display:
+  skin: "default"                   # default | ares | mono | slate | <custom>
+  tool_progress: "all"              # off | new | all | verbose
+  compact: false
+  show_reasoning: false
+  streaming: false
+
+compression:
+  enabled: true
+  threshold: 0.85
+  summary_model: "google/gemini-3-flash-preview"
+
+approvals:
+  mode: "manual"                    # manual | smart | off
+
+toolsets:
+  - all
+```
+
+---
+
+## Model
+
+<ParamField path="model" type="string | object" default="anthropic/claude-opus-4.6">
+  The default model. Can be a plain string (model slug) or an object with `default`, `provider`, and `base_url`.
+
+  ```yaml
+  # Simple
+  model: "anthropic/claude-opus-4.6"
+
+  # Full object
+  model:
+    default: "anthropic/claude-opus-4.6"
+    provider: "openrouter"
+    base_url: "https://openrouter.ai/api/v1"
+  ```
+</ParamField>
+
+<ParamField path="model.provider" type="string" default="auto">
+  Inference provider. Options: `auto`, `openrouter`, `nous`, `openai-codex`, `copilot-acp`, `copilot`, `anthropic`, `zai`, `kimi-coding`, `minimax`, `minimax-cn`, `kilocode`, `opencode-zen`, `opencode-go`, `ai-gateway`, `alibaba`, `custom`. Can also be overridden with `--provider` flag or `HERMES_INFERENCE_PROVIDER` env var.
+</ParamField>
+
+<ParamField path="model.base_url" type="string">
+  API base URL. Used to point at custom OpenAI-compatible endpoints.
+</ParamField>
+
+---
+
+## Agent
+
+<ParamField path="agent.max_turns" type="integer" default="90">
+  Maximum tool-calling iterations per conversation. Higher values allow more complex tasks at the cost of more tokens. Recommended: 20–30 for focused tasks, 50–100 for open exploration.
+</ParamField>
+
+<ParamField path="agent.reasoning_effort" type="string">
+  Reasoning effort level for models that support extended thinking (OpenRouter, Nous Portal). Options: `xhigh`, `high`, `medium`, `low`, `minimal`, `none`. Toggle at runtime with `/reasoning [level]`.
+</ParamField>
+
+---
+
+## Terminal
+
+<ParamField path="terminal.backend" type="string" default="local">
+  Terminal execution backend. Options:
+  - `local` — runs commands on your machine
+  - `ssh` — runs commands on a remote server
+  - `docker` — isolated Docker container
+  - `singularity` — Singularity/Apptainer container (HPC environments)
+  - `modal` — Modal cloud sandbox
+  - `daytona` — Daytona cloud dev environments
+</ParamField>
+
+<ParamField path="terminal.cwd" type="string" default=".">
+  Working directory. For `local`: `.` means the directory where `hermes` was launched. For remote backends, use an absolute path inside the target environment.
+</ParamField>
+
+<ParamField path="terminal.timeout" type="integer" default="180">
+  Default command timeout in seconds.
+</ParamField>
+
+<ParamField path="terminal.persistent_shell" type="boolean" default="true">
+  Keep a long-lived bash shell across `execute()` calls so `cwd`, environment variables, and shell state survive between commands. Enabled by default for non-local backends.
+</ParamField>
+
+<ParamField path="terminal.docker_image" type="string" default="nikolaik/python-nodejs:python3.11-nodejs20">
+  Docker image for the `docker` backend.
+</ParamField>
+
+<ParamField path="terminal.docker_mount_cwd_to_workspace" type="boolean" default="false">
+  Explicitly mount the launch `cwd` into `/workspace` inside Docker. Off by default for isolation.
+</ParamField>
+
+<ParamField path="terminal.docker_forward_env" type="list">
+  List of environment variable names to forward from the host into the Docker container.
+
+  ```yaml
+  terminal:
+    docker_forward_env:
+      - GITHUB_TOKEN
+      - NPM_TOKEN
+  ```
+</ParamField>
+
+<ParamField path="terminal.docker_volumes" type="list">
+  Docker volume mounts. Each entry is `host_path:container_path` (standard Docker `-v` syntax).
+
+  ```yaml
+  terminal:
+    docker_volumes:
+      - "/home/user/projects:/workspace/projects"
+  ```
+</ParamField>
+
+<ParamField path="terminal.container_cpu" type="integer" default="1">
+  CPU cores for container backends (docker, singularity, modal, daytona). Ignored for `local` and `ssh`.
+</ParamField>
+
+<ParamField path="terminal.container_memory" type="integer" default="5120">
+  Memory in MB for container backends. Default is 5120 (5 GB).
+</ParamField>
+
+<ParamField path="terminal.container_disk" type="integer" default="51200">
+  Disk space in MB for container backends. Default is 51200 (50 GB).
+</ParamField>
+
+<ParamField path="terminal.container_persistent" type="boolean" default="true">
+  Persist the container filesystem across sessions. Set to `false` for ephemeral (fresh) containers.
+</ParamField>
+
+**SSH-specific keys** (used when `backend: ssh`):
+
+| Key | Description |
+|-----|-------------|
+| `terminal.ssh_host` | SSH hostname or IP |
+| `terminal.ssh_user` | SSH username |
+| `terminal.ssh_port` | SSH port (default: 22) |
+| `terminal.ssh_key` | Path to SSH private key (uses `ssh-agent` if omitted) |
+
+---
+
+## Browser
+
+<ParamField path="browser.inactivity_timeout" type="integer" default="120">
+  Seconds of agent inactivity before browser sessions are automatically closed.
+</ParamField>
+
+<ParamField path="browser.record_sessions" type="boolean" default="false">
+  Automatically record browser sessions as WebM videos.
+</ParamField>
+
+---
+
+## Memory
+
+<ParamField path="memory.memory_enabled" type="boolean" default="true">
+  Enable the agent's persistent memory store (`MEMORY.md`). The agent can save facts about the environment, coding conventions, and things it has learned.
+</ParamField>
+
+<ParamField path="memory.user_profile_enabled" type="boolean" default="true">
+  Enable the user profile store (`USER.md`). The agent saves preferences, communication style, and expectations.
+</ParamField>
+
+<ParamField path="memory.memory_char_limit" type="integer" default="2200">
+  Maximum character count for the agent memory store (~800 tokens at 2.75 chars/token).
+</ParamField>
+
+<ParamField path="memory.user_char_limit" type="integer" default="1375">
+  Maximum character count for the user profile store (~500 tokens).
+</ParamField>
+
+---
+
+## Compression
+
+When a conversation approaches the model's context limit, middle turns are automatically summarized.
+
+<ParamField path="compression.enabled" type="boolean" default="true">
+  Enable automatic context compression.
+</ParamField>
+
+<ParamField path="compression.threshold" type="number" default="0.85">
+  Trigger compression at this fraction of the model's context limit (e.g. `0.85` = 85%). Lower values compress earlier.
+</ParamField>
+
+<ParamField path="compression.summary_model" type="string" default="google/gemini-3-flash-preview">
+  Fast, cheap model used to generate conversation summaries. Must support a context length at least as large as your main model.
+</ParamField>
+
+<ParamField path="compression.summary_provider" type="string" default="auto">
+  Provider for the summary model. Options: `auto`, `openrouter`, `nous`, `main`.
+</ParamField>
+
+---
+
+## Display / Skin
+
+<ParamField path="display.skin" type="string" default="default">
+  Visual theme for the CLI. Built-in skins: `default` (gold/kawaii), `ares` (crimson/bronze), `mono` (grayscale), `slate` (blue developer). Drop custom YAML skins in `~/.hermes/skins/<name>.yaml`.
+</ParamField>
+
+<ParamField path="display.tool_progress" type="string" default="all">
+  Tool activity display level:
+  - `off` — silent, only show the final response
+  - `new` — show a tool indicator only when the tool changes
+  - `all` — show every tool call with a short preview
+  - `verbose` — full args, results, and debug logs
+
+  Toggle at runtime with `/verbose`.
+</ParamField>
+
+<ParamField path="display.compact" type="boolean" default="false">
+  Use compact banner mode.
+</ParamField>
+
+<ParamField path="display.show_reasoning" type="boolean" default="false">
+  Show the model's reasoning/thinking before each response. Toggle with `/reasoning show` or `/reasoning hide`.
+</ParamField>
+
+<ParamField path="display.streaming" type="boolean" default="false">
+  Stream tokens to the terminal as they arrive instead of waiting for the full response.
+</ParamField>
+
+<ParamField path="display.bell_on_complete" type="boolean" default="false">
+  Ring the terminal bell when the agent finishes a response.
+</ParamField>
+
+<ParamField path="display.show_cost" type="boolean" default="false">
+  Show estimated cost in the status bar.
+</ParamField>
+
+<ParamField path="display.personality" type="string" default="kawaii">
+  Default personality preset.
+</ParamField>
+
+<ParamField path="display.background_process_notifications" type="string" default="all">
+  Gateway-only. Controls watcher verbosity for `terminal(background=true)` calls:
+  - `all` — running output + final message
+  - `result` — final completion message only
+  - `error` — final message only when exit code ≠ 0
+  - `off` — no watcher messages
+</ParamField>
+
+---
+
+## Approvals
+
+<ParamField path="approvals.mode" type="string" default="manual">
+  Approval mode for dangerous terminal commands:
+  - `manual` — always prompt the user
+  - `smart` — use an auxiliary LLM to auto-approve low-risk commands, prompt for high-risk
+  - `off` — skip all prompts (equivalent to `--yolo`)
+</ParamField>
+
+<ParamField path="command_allowlist" type="list" default="[]">
+  Permanently allowed dangerous command patterns (added via the "always" approval option during a session).
+</ParamField>
+
+---
+
+## Tools / Toolsets
+
+<ParamField path="toolsets" type="list" default="[hermes-cli]">
+  List of toolsets to enable. Use `all` to enable everything, or specify individual toolset names.
+
+  ```yaml
+  toolsets:
+    - all
+
+  # or
+  toolsets:
+    - web
+    - terminal
+    - file
+  ```
+</ParamField>
+
+<ParamField path="platform_toolsets" type="object">
+  Per-platform toolset configuration. Keys: `cli`, `telegram`, `discord`, `whatsapp`, `slack`, `signal`, `homeassistant`.
+
+  ```yaml
+  platform_toolsets:
+    cli: [hermes-cli]
+    telegram: [web, terminal, file, todo]
+    discord: [web, vision, skills]
+  ```
+</ParamField>
+
+---
+
+## Delegation
+
+<ParamField path="delegation.model" type="string">
+  Model for subagents spawned by `delegate_task`. Empty inherits the parent's model.
+</ParamField>
+
+<ParamField path="delegation.provider" type="string">
+  Provider for subagents. Empty inherits the parent's provider.
+</ParamField>
+
+<ParamField path="delegation.max_iterations" type="integer" default="50">
+  Maximum tool-calling turns per child agent.
+</ParamField>
+
+<ParamField path="delegation.default_toolsets" type="list" default="[terminal, file, web]">
+  Default toolsets available to subagents.
+</ParamField>
+
+---
+
+## Auxiliary models
+
+Hermes uses lightweight auxiliary models for side tasks (vision analysis, web extraction, context compression, session search). Each task has its own `provider` + `model` pair.
+
+```yaml
+auxiliary:
+  vision:
+    provider: "auto"   # auto | openrouter | nous | codex | main
+    model: ""          # e.g. "google/gemini-2.5-flash" (empty = provider default)
+  web_extract:
+    provider: "auto"
+    model: ""
+  compression:
+    provider: "auto"
+    model: ""
+  approval:
+    provider: "auto"
+    model: ""          # fast/cheap model recommended
+```
+
+All tasks fall back to `openrouter:google/gemini-3-flash-preview` if the configured provider is unavailable.
+
+---
+
+## TTS / STT
+
+<ParamField path="tts.provider" type="string" default="edge">
+  Text-to-speech provider: `edge` (free, no API key), `elevenlabs` (premium), `openai`, or `neutts` (local).
+</ParamField>
+
+<ParamField path="stt.provider" type="string" default="local">
+  Speech-to-text provider: `local` (faster-whisper, no API key), `groq`, or `openai`.
+</ParamField>
+
+<ParamField path="stt.enabled" type="boolean" default="true">
+  Enable automatic voice transcription for messaging platforms.
+</ParamField>
+
+---
+
+## Checkpoints
+
+<ParamField path="checkpoints.enabled" type="boolean" default="true">
+  Take automatic filesystem snapshots before destructive file operations. Use `/rollback` to restore.
+</ParamField>
+
+<ParamField path="checkpoints.max_snapshots" type="integer" default="50">
+  Maximum number of checkpoints to keep per directory.
+</ParamField>
+
+---
+
+## Session reset (gateway)
+
+<ParamField path="session_reset.mode" type="string" default="both">
+  When to auto-clear messaging sessions: `both` (idle or daily), `idle`, `daily`, or `none`.
+</ParamField>
+
+<ParamField path="session_reset.idle_minutes" type="integer" default="1440">
+  Inactivity timeout in minutes before a session is reset. Default is 1440 (24 hours).
+</ParamField>
+
+<ParamField path="session_reset.at_hour" type="integer" default="4">
+  Hour of the day (0–23) for the daily reset.
+</ParamField>
+
+<ParamField path="group_sessions_per_user" type="boolean" default="true">
+  In group/channel chats, maintain a separate session per user. Set to `false` for a single shared context.
+</ParamField>
+
+---
+
+## Security
+
+<ParamField path="security.redact_secrets" type="boolean" default="true">
+  Redact API keys, tokens, and passwords from tool output before sending to the LLM.
+</ParamField>
+
+<ParamField path="security.tirith_enabled" type="boolean" default="true">
+  Enable pre-execution command security scanning via [tirith](https://github.com/sheeki03/tirith) (when installed).
+</ParamField>
+
+<ParamField path="privacy.redact_pii" type="boolean" default="false">
+  When `true`, hash user IDs and strip phone numbers from the LLM context. Names and usernames are not affected.
+</ParamField>
+
+---
+
+## Other
+
+<ParamField path="timezone" type="string" default="">
+  IANA timezone string, e.g. `America/New_York` or `Asia/Kolkata`. Empty uses server-local time.
+</ParamField>
+
+<ParamField path="prefill_messages_file" type="string">
+  Path to a JSON file containing ephemeral `{role, content}` messages injected at every API call for few-shot priming. Never persisted.
+</ParamField>
+
+<ParamField path="honcho" type="object">
+  Hermes-specific overrides for Honcho integration. Most Honcho config lives in `~/.honcho/config.json` (shared with Claude Code, Cursor, etc.).
+</ParamField>
+
+<ParamField path="personalities" type="object">
+  Custom personality presets. Supports string format (`{"name": "system prompt"}`) or dict format with `description`, `system_prompt`, `tone`, and `style` keys.
+
+  ```yaml
+  personalities:
+    my-assistant: "You are a helpful assistant focused on Python development."
+  ```
+</ParamField>
+
+<ParamField path="quick_commands" type="object">
+  User-defined quick commands that bypass the agent loop entirely (type: `exec` only).
+</ParamField>
+
+<ParamField path="mcp_servers" type="object">
+  MCP (Model Context Protocol) server connections. See the MCP documentation for full configuration options.
+
+  ```yaml
+  mcp_servers:
+    time:
+      command: uvx
+      args: ["mcp-server-time"]
+    github:
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-github"]
+      env:
+        GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."
+  ```
+</ParamField>

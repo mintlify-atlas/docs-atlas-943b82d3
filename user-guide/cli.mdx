@@ -1,0 +1,245 @@
+---
+title: "CLI usage"
+description: "Interactive terminal interface, slash commands, keybindings, and sessions"
+---
+
+## Starting Hermes
+
+Run `hermes` from your terminal to open the interactive TUI:
+
+```bash
+hermes
+```
+
+If you haven't run setup yet, you'll be prompted to configure a provider. You can also run the full setup wizard at any time:
+
+```bash
+hermes setup
+```
+
+## The TUI
+
+Hermes uses [prompt\_toolkit](https://python-prompt-toolkit.readthedocs.io/) for a full terminal UI:
+
+- **Multiline editing** — press `Meta+Enter` (or `Esc` then `Enter`) to insert a newline; press `Enter` to send
+- **Slash command autocomplete** — type `/` and press `Tab` to cycle through completions; subcommands and model names also complete
+- **Ghost-text suggestions** — as you type a slash command, the rest appears in dim text
+- **Streaming tool output** — the `┊` activity feed shows each tool call as it runs
+- **Interrupt and redirect** — press `Ctrl+C` to cancel the agent mid-run; your next message becomes the new instruction
+
+## Slash commands
+
+Type `/help` at any time to see all available commands. Every command resolves its aliases automatically, so `/reset` and `/new` both start a new session.
+
+### Session commands
+
+| Command | Aliases | Args | Description |
+|---------|---------|------|-------------|
+| `/new` | `/reset` | — | Start a fresh session (new session ID + history) |
+| `/clear` | — | — | Clear the screen and start a new session |
+| `/retry` | — | — | Resend the last user message to the agent |
+| `/undo` | — | — | Remove the last user/assistant exchange |
+| `/title` | — | `[name]` | Set a title for the current session |
+| `/compress` | — | — | Manually compress conversation context |
+| `/rollback` | — | `[number]` | List or restore filesystem checkpoints |
+| `/stop` | — | — | Kill all running background processes |
+| `/background` | `/bg` | `<prompt>` | Run a prompt in the background |
+| `/resume` | — | `[name]` | Resume a previously-named session |
+| `/history` | — | — | Show conversation history |
+| `/save` | — | — | Save the current conversation |
+
+### Configuration commands
+
+| Command | Aliases | Args | Description |
+|---------|---------|------|-------------|
+| `/model` | — | `[provider:model]` | Show or change the current model |
+| `/provider` | — | — | Show available providers and current provider |
+| `/personality` | — | `[name]` | Set a predefined personality |
+| `/skin` | — | `[name]` | Show or change the display skin/theme |
+| `/voice` | — | `[on\|off\|tts\|status]` | Toggle voice mode |
+| `/reasoning` | — | `[level\|show\|hide]` | Manage reasoning effort and display |
+| `/prompt` | — | `[text]` | View or set a custom system prompt |
+| `/verbose` | — | — | Cycle tool progress: off → new → all → verbose |
+| `/statusbar` | `/sb` | — | Toggle the context/model status bar |
+| `/config` | — | — | Show current configuration |
+
+### Tools & Skills commands
+
+| Command | Aliases | Args | Description |
+|---------|---------|------|-------------|
+| `/tools` | — | `[list\|disable\|enable] [name...]` | Manage tools |
+| `/toolsets` | — | — | List available toolsets |
+| `/skills` | — | `[search\|browse\|inspect\|install]` | Search, install, and manage skills |
+| `/cron` | — | `[subcommand]` | Manage scheduled tasks |
+| `/browser` | — | `[connect\|disconnect\|status]` | Connect browser tools via CDP |
+| `/reload-mcp` | `/reload_mcp` | — | Reload MCP servers from config |
+| `/plugins` | — | — | List installed plugins and their status |
+
+<AccordionGroup>
+  <Accordion title="Info commands">
+    | Command | Aliases | Args | Description |
+    |---------|---------|------|-------------|
+    | `/help` | — | — | Show available commands |
+    | `/usage` | — | — | Show token usage for the current session |
+    | `/insights` | — | `[days]` | Show usage insights and analytics |
+    | `/platforms` | `/gateway` | — | Show gateway/messaging platform status |
+    | `/paste` | — | — | Check clipboard for an image and attach it |
+  </Accordion>
+
+  <Accordion title="Exit commands">
+    | Command | Aliases | Description |
+    |---------|---------|-------------|
+    | `/quit` | `/exit`, `/q` | Exit the CLI |
+  </Accordion>
+</AccordionGroup>
+
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Send message |
+| `Meta+Enter` / `Esc` then `Enter` | Insert a newline (multiline) |
+| `Ctrl+C` | Interrupt the running agent turn |
+| `Tab` | Autocomplete slash command or subcommand |
+| `↑` / `↓` | Navigate input history |
+| `Ctrl+L` | Clear the screen |
+
+## Session management
+
+### Starting and resetting
+
+Each `hermes` invocation starts (or resumes) a session. To start completely fresh:
+
+```
+/new
+```
+
+Session IDs are displayed in the welcome banner. You can name a session with `/title my-project` and resume it later with `/resume my-project`.
+
+### Retrying and undoing
+
+- `/retry` — resends your last message. Useful when the agent took a wrong turn.
+- `/undo` — removes the last user/assistant exchange from context. The agent won't see that turn happened.
+
+### Context compression
+
+As conversations grow, context usage approaches the model's limit. Hermes handles this in two ways:
+
+**Auto-compression** fires automatically when prompt token usage reaches the configured threshold (default: 50% of context length). The middle turns of the conversation are summarized by a fast auxiliary model (default: `google/gemini-3-flash-preview`), keeping the first three and last four turns intact.
+
+**Manual compression** via `/compress` triggers the same process immediately — useful before a complex task to free up space.
+
+Configure compression in `~/.hermes/config.yaml`:
+
+```yaml
+compression:
+  enabled: true
+  threshold: 0.50       # Compress at 50% of context limit
+  summary_model: "google/gemini-3-flash-preview"
+```
+
+### Filesystem rollback
+
+Hermes takes a filesystem snapshot before destructive file operations (write, patch) once per conversation turn. To list checkpoints:
+
+```
+/rollback
+```
+
+To restore a specific checkpoint:
+
+```
+/rollback 3
+```
+
+## Background tasks
+
+Run any prompt in the background without blocking your conversation:
+
+```
+/background run the test suite and summarize failures
+/bg deploy the staging branch
+```
+
+The agent spawns the task and returns immediately. Progress notifications appear in your chat as the background process runs. Control verbosity with `/verbose` or the `display.background_process_notifications` config key.
+
+## Personalities
+
+Personalities apply a predefined system prompt addendum to shape the agent's tone and style. Switch at any time:
+
+```
+/personality kawaii
+/personality concise
+/personality technical
+```
+
+Built-in personalities include `kawaii`, `concise`, `technical`, `creative`, `teacher`, `catgirl`, `pirate`, `shakespeare`, `surfer`, `noir`, `uwu`, `philosopher`, and `hype`. You can define custom personalities in `config.yaml` under the `personalities` key.
+
+## Skins and themes
+
+The skin system customizes banner colors, spinner faces, tool prefix, response box label, and branding text. Change at runtime:
+
+```
+/skin
+/skin ares
+/skin mono
+```
+
+### Built-in skins
+
+| Skin | Description |
+|------|-------------|
+| `default` | Classic Hermes — gold and kawaii |
+| `ares` | War-god theme — crimson and bronze, with spinner wings |
+| `mono` | Monochrome — clean grayscale |
+| `slate` | Cool blue — developer-focused |
+| `poseidon` | Ocean-god theme — deep blue and seafoam |
+| `sisyphus` | Austere grayscale with persistence theming |
+| `charizard` | Volcanic theme — burnt orange and ember |
+
+To set a skin permanently, add it to `~/.hermes/config.yaml`:
+
+```yaml
+display:
+  skin: slate
+```
+
+### Custom skins
+
+Drop a YAML file in `~/.hermes/skins/<name>.yaml`. All fields are optional — missing values inherit from the `default` skin:
+
+```yaml
+name: cyberpunk
+description: Neon-soaked terminal theme
+
+colors:
+  banner_border: "#FF00FF"
+  banner_title: "#00FFFF"
+  banner_accent: "#FF1493"
+
+spinner:
+  thinking_verbs: ["jacking in", "decrypting", "uploading"]
+  wings:
+    - ["⟨⚡", "⚡⟩"]
+
+branding:
+  agent_name: "Cyber Agent"
+  response_label: " ⚡ Cyber "
+
+tool_prefix: "▏"
+```
+
+Activate with `/skin cyberpunk`.
+
+## Voice mode
+
+Hermes supports speech-to-text input and text-to-speech output.
+
+```
+/voice on        # Enable voice input (press Ctrl+B to record)
+/voice tts       # Enable TTS for agent responses
+/voice status    # Show current voice settings
+/voice off       # Disable voice
+```
+
+Voice input uses `faster-whisper` locally by default (no API key needed). TTS defaults to Microsoft Edge TTS (free). See the [Configuration](/user-guide/configuration) page for provider options.

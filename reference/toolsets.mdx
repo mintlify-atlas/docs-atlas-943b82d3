@@ -1,0 +1,177 @@
+---
+title: "Toolsets"
+description: "Predefined tool groups for different use cases. Compose and configure which tools are available to the agent."
+---
+
+Toolsets are named groups of tools. You select toolsets at startup (via `--toolsets` or `toolsets:` in config) and the agent only has access to the tools in the active set.
+
+## How to use toolsets
+
+<Tabs>
+  <Tab title="Command line">
+    Pass a comma-separated list of toolsets to the `--toolsets` / `-t` flag:
+
+    ```bash
+    hermes -t web,terminal,file
+    hermes -t research
+    hermes -t all
+    ```
+  </Tab>
+  <Tab title="config.yaml">
+    Set the `toolsets` key to a list:
+
+    ```yaml
+    toolsets:
+      - all
+    ```
+
+    Or specify individual toolsets:
+
+    ```yaml
+    toolsets:
+      - web
+      - terminal
+      - file
+      - todo
+    ```
+  </Tab>
+  <Tab title="Per-platform">
+    Override toolsets per messaging platform:
+
+    ```yaml
+    platform_toolsets:
+      cli: [hermes-cli]
+      telegram: [web, terminal, file, todo]
+      discord: [web, vision, skills]
+    ```
+  </Tab>
+  <Tab title="In session">
+    Use `/toolsets` to list active toolsets, or `/tools list` to see every tool:
+
+    ```
+    /toolsets
+    /tools list
+    /tools disable browser
+    /tools enable web
+    ```
+  </Tab>
+</Tabs>
+
+The special alias `all` resolves to every available toolset.
+
+---
+
+## Core toolsets
+
+These single-purpose toolsets can be composed into custom configurations.
+
+| Toolset | Tools | Description |
+|---------|-------|-------------|
+| `web` | `web_search`, `web_extract` | Web research and content extraction |
+| `search` | `web_search` | Web search only — no scraping |
+| `terminal` | `terminal`, `process` | Command execution and process management |
+| `file` | `read_file`, `write_file`, `patch`, `search_files` | File operations: read, write, patch, and search |
+| `browser` | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_scroll`, `browser_back`, `browser_press`, `browser_close`, `browser_get_images`, `browser_vision`, `browser_console`, `web_search` | Full browser automation |
+| `vision` | `vision_analyze` | Image analysis |
+| `image_gen` | `image_generate` | Image generation with FLUX |
+| `skills` | `skills_list`, `skill_view`, `skill_manage` | Load, inspect, and manage skill documents |
+| `moa` | `mixture_of_agents` | Mixture-of-Agents reasoning |
+| `tts` | `text_to_speech` | Text-to-speech (Edge TTS, ElevenLabs, OpenAI) |
+| `todo` | `todo` | In-session task planning and tracking |
+| `memory` | `memory` | Persistent memory across sessions |
+| `session_search` | `session_search` | Search and recall past conversations |
+| `clarify` | `clarify` | Ask the user clarifying questions |
+| `code_execution` | `execute_code` | Run Python scripts that call tools via RPC |
+| `delegation` | `delegate_task` | Spawn subagents with isolated context |
+| `cronjob` | `cronjob` | Schedule and manage automated tasks |
+| `messaging` | `send_message` | Cross-platform messaging (Telegram, Discord, Slack, etc.) |
+| `honcho` | `honcho_context`, `honcho_profile`, `honcho_search`, `honcho_conclude` | Honcho AI-native cross-session user memory |
+| `homeassistant` | `ha_list_entities`, `ha_get_state`, `ha_list_services`, `ha_call_service` | Home Assistant smart home control |
+| `rl` | `rl_list_environments`, `rl_select_environment`, `rl_get_current_config`, `rl_edit_config`, `rl_start_training`, `rl_check_status`, `rl_stop_training`, `rl_get_results`, `rl_list_runs`, `rl_test_inference` | RL training (Tinker-Atropos) |
+
+---
+
+## Composite toolsets
+
+Composite toolsets include all tools from their member toolsets.
+
+| Toolset | Includes | Description |
+|---------|----------|-------------|
+| `debugging` | `terminal`, `web`, `file` | Debugging and troubleshooting toolkit |
+| `safe` | `web`, `vision`, `image_gen`, `moa` | Read-only toolkit without terminal access |
+
+---
+
+## Platform presets
+
+Platform presets are curated bundles for each messaging platform. They include all tools from `_HERMES_CORE_TOOLS` (the full tool set).
+
+| Preset | Description |
+|--------|-------------|
+| `hermes-cli` | Full interactive CLI — all core tools including cronjob management |
+| `hermes-telegram` | Telegram bot — full access with dangerous command approval |
+| `hermes-discord` | Discord bot — full access with dangerous command approval |
+| `hermes-whatsapp` | WhatsApp bot — full access (personal messaging, trusted) |
+| `hermes-slack` | Slack bot — full access for workspace use |
+| `hermes-signal` | Signal bot — encrypted messaging, full access |
+| `hermes-homeassistant` | Home Assistant bot — smart home event monitoring and control |
+| `hermes-email` | Email bot (IMAP/SMTP) — full access |
+| `hermes-sms` | SMS bot (Twilio) — full access |
+| `hermes-acp` | Editor integration (VS Code, Zed, JetBrains) — coding-focused, no messaging or audio |
+| `hermes-gateway` | Union of all messaging platform presets |
+
+---
+
+## Custom toolset composition
+
+You can create ad-hoc toolsets in `config.yaml` by listing multiple built-in toolsets. Tool names are deduplicated automatically.
+
+```yaml
+# Minimal: web + terminal + planning
+toolsets:
+  - web
+  - terminal
+  - todo
+
+# Research mode: no code execution
+toolsets:
+  - web
+  - vision
+  - skills
+  - memory
+
+# Full automation: browser + terminal + files
+toolsets:
+  - terminal
+  - browser
+  - web
+  - file
+```
+
+You can also compose toolsets at runtime:
+
+```bash
+hermes -t web,terminal,todo
+```
+
+---
+
+## Required API keys per toolset
+
+Some toolsets require API keys to be functional. Tools with unsatisfied requirements are silently excluded from the agent's tool list.
+
+| Toolset | Required keys |
+|---------|---------------|
+| `web` | `PARALLEL_API_KEY`, `FIRECRAWL_API_KEY`, or `TAVILY_API_KEY` (at least one) |
+| `vision` | `OPENROUTER_API_KEY` (or another multimodal provider) |
+| `image_gen` | `FAL_KEY` |
+| `moa` | `OPENROUTER_API_KEY` |
+| `browser` | None for local browser; `BROWSERBASE_API_KEY` + `BROWSERBASE_PROJECT_ID` for cloud |
+| `tts` | None for Edge TTS (free); `ELEVENLABS_API_KEY` or `VOICE_TOOLS_OPENAI_KEY` for premium voices |
+| `honcho` | `HONCHO_API_KEY` + `~/.honcho/config.json` |
+| `homeassistant` | `HASS_TOKEN` (Home Assistant long-lived access token) |
+| `rl` | `TINKER_API_KEY` |
+
+<Tip>
+Run `hermes doctor` to check which toolsets are available and what is missing.
+</Tip>

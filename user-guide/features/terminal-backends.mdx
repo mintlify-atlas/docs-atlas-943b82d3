@@ -1,0 +1,166 @@
+---
+title: "Terminal backends"
+description: "Run Hermes commands on local, Docker, SSH, Daytona, Singularity, or Modal backends"
+---
+
+The terminal backend determines *where* the agent executes shell commands. You can run commands on your local machine, inside a Docker container, on a remote server over SSH, or in serverless cloud sandboxes that hibernate when idle.
+
+## What terminal backends are
+
+Every call to the `terminal` and file tools routes through an execution backend. The backend provides an isolated environment with its own filesystem, shell, and process namespace. Backends are persistent across a conversation — the same shell session (with its working directory and environment) stays alive between tool calls.
+
+## Configuring the backend
+
+Set the backend in `~/.hermes/config.yaml` under `terminal.backend`:
+
+```yaml
+terminal:
+  backend: local   # local | docker | ssh | daytona | singularity | modal
+```
+
+Or set the `TERMINAL_ENV` environment variable:
+
+```bash
+export TERMINAL_ENV=docker
+```
+
+## Backends
+
+<Tabs>
+  <Tab title="Local">
+    The default backend. Commands run directly on your machine in your current working directory.
+
+    ```yaml
+    terminal:
+      backend: local
+      cwd: "."       # use current directory (default)
+      timeout: 180   # seconds
+    ```
+
+    **When to use**: everyday development, scripts that need access to your local filesystem and tools.
+
+    The local backend requires no setup and has no overhead. Use `pty: true` on the `terminal` tool for interactive programs (Python REPL, editors).
+  </Tab>
+
+  <Tab title="Docker">
+    Commands run inside an isolated Docker container. The container is created on first use and kept alive across tool calls.
+
+    ```yaml
+    terminal:
+      backend: docker
+      docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+      container_cpu: 1
+      container_memory: 5120       # MB
+      container_disk: 51200        # MB
+      container_persistent: true   # persist filesystem across sessions
+      docker_volumes:              # optional host bind mounts
+        - "/home/user/projects:/workspace/projects"
+      docker_mount_cwd_to_workspace: false  # mount host cwd to /workspace
+      docker_forward_env: []       # host env vars to pass into container
+    ```
+
+    **When to use**: isolated environments for untrusted code, reproducible builds, or when you want the agent to work in a clean container rather than your host system.
+
+    The container uses security hardening by default: `--cap-drop ALL`, `--no-new-privileges`, and PID limits.
+  </Tab>
+
+  <Tab title="SSH">
+    Commands run on a remote server over SSH. A ControlMaster connection is kept alive so subsequent commands are fast.
+
+    ```yaml
+    terminal:
+      backend: ssh
+      ssh_host: "my-server.example.com"
+      ssh_user: "ubuntu"
+      ssh_port: 22
+      ssh_key: "~/.ssh/id_ed25519"   # optional, uses SSH agent otherwise
+      persistent_shell: true          # keep shell state between calls
+    ```
+
+    **When to use**: running commands on a cloud VM, a dedicated build server, or any remote machine you have SSH access to. Because execution happens on a separate machine, the agent cannot modify its own code.
+
+    Set `TERMINAL_SSH_HOST`, `TERMINAL_SSH_USER`, and optionally `TERMINAL_SSH_KEY` in `~/.hermes/.env` as an alternative to the config file.
+  </Tab>
+
+  <Tab title="Daytona">
+    Commands run in a [Daytona](https://daytona.io) cloud sandbox. Sandboxes hibernate when idle and wake on demand — you pay nearly nothing between sessions.
+
+    ```yaml
+    terminal:
+      backend: daytona
+      daytona_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+      container_cpu: 1
+      container_memory: 5120   # MB
+      container_disk: 10240    # MB (Daytona max: 10 GB)
+      container_persistent: true
+    ```
+
+    **When to use**: serverless persistence — keep a long-lived environment without paying for it when you're not using it. Ideal for running Hermes on a $5/month VPS with Daytona handling the actual compute.
+
+    Requires the `daytona` Python package and a `DAYTONA_API_KEY` in `~/.hermes/.env`.
+  </Tab>
+
+  <Tab title="Modal">
+    Commands run in a [Modal](https://modal.com) serverless sandbox. Modal offers CPU and GPU execution that spins up on demand.
+
+    ```yaml
+    terminal:
+      backend: modal
+      modal_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+      container_cpu: 1
+      container_memory: 5120   # MB
+      container_disk: 51200    # MB
+      container_persistent: true
+    ```
+
+    **When to use**: serverless GPU/CPU workloads, ML training runs, or any task that benefits from Modal's auto-scaling infrastructure.
+
+    Filesystem is persisted via Modal's snapshot API between sessions. Requires the `modal` Python package and a Modal account (`modal token new`).
+  </Tab>
+
+  <Tab title="Singularity">
+    Commands run inside a Singularity (Apptainer) container. Designed for HPC environments where Docker is unavailable.
+
+    ```yaml
+    terminal:
+      backend: singularity
+      singularity_image: "docker://nikolaik/python-nodejs:python3.11-nodejs20"
+      container_cpu: 1
+      container_memory: 5120   # MB
+      container_disk: 51200    # MB
+      container_persistent: true
+    ```
+
+    **When to use**: university computing clusters, national labs, or any HPC environment that uses Singularity/Apptainer instead of Docker.
+
+    The backend uses `--containall` and `--no-home` for security hardening. Writable overlay directories provide filesystem persistence across sessions. Requires `apptainer` or `singularity` in your PATH.
+  </Tab>
+</Tabs>
+
+## Common configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `terminal.backend` | `local` | Which backend to use |
+| `terminal.timeout` | `180` | Default command timeout in seconds |
+| `terminal.cwd` | `.` (local) / `/root` (containers) | Working directory |
+| `terminal.container_cpu` | `1` | CPU cores (container backends) |
+| `terminal.container_memory` | `5120` | Memory in MB (container backends) |
+| `terminal.container_disk` | `51200` | Disk in MB (container backends) |
+| `terminal.container_persistent` | `true` | Persist filesystem across sessions |
+| `terminal.persistent_shell` | `true` (SSH) | Keep shell state between calls |
+
+## Environment lifecycle
+
+Backends are created lazily on first use and kept alive for the duration of the session. A background cleanup thread removes inactive environments after `terminal.lifetime_seconds` (default: 300 seconds) of inactivity — but only if there are no active background processes.
+
+To manually clean up an environment, end your session or run:
+
+```python
+from tools.terminal_tool import cleanup_all_environments
+cleanup_all_environments()
+```
+
+<Note>
+The `TERMINAL_ENV` environment variable overrides `terminal.backend` in config.yaml. This is useful for overriding the backend for a single session without changing your config.
+</Note>

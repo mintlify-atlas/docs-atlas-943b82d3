@@ -1,0 +1,242 @@
+---
+title: "Security"
+description: "Command approval, DM pairing, container isolation, and dangerous command detection"
+---
+
+## Command approval
+
+Before executing any terminal command, Hermes checks it against a list of dangerous patterns. When a match is found, execution is paused and you're asked to approve or deny.
+
+### How detection works
+
+The dangerous command detector (`tools/approval.py`) scans every shell command against a set of regex patterns before it runs. Matched categories include:
+
+| Pattern | Description |
+|---------|-------------|
+| `rm -r` | Recursive delete |
+| `chmod 777` | World-writable permissions |
+| `chown -R root` | Recursive chown to root |
+| `mkfs` | Format filesystem |
+| `dd if=` | Disk copy |
+| `DROP TABLE/DATABASE` | SQL DROP |
+| `DELETE FROM` (no WHERE) | SQL DELETE without WHERE clause |
+| `TRUNCATE TABLE` | SQL TRUNCATE |
+| Write to `/etc/` | Overwrite system config |
+| `systemctl stop/disable` | Stop or disable a system service |
+| `kill -9 -1` | Kill all processes |
+| Fork bomb pattern | `:()\{ :\|:& \};:` |
+| `bash -c`, `sh -c` | Shell via -c flag |
+| `python -e`, `python -c` | Script execution via -e/-c |
+| `curl \| bash` | Pipe remote content to shell |
+| `find -exec rm` | find with rm exec |
+
+<Warning>
+Container backends (Docker, Singularity, Modal, Daytona) bypass approval entirely — commands run inside the isolated container without prompting. Use a container backend when you want unrestricted agent execution without approval interruptions.
+</Warning>
+
+### Approval choices
+
+When a dangerous command is detected, you'll be presented with:
+
+- **Once** — allow this specific command, this time only
+- **Session** — approve this command pattern for the rest of the current session
+- **Always** — add the pattern to your permanent allowlist (saved to `config.yaml`)
+- **Deny** — block the command; the agent is told it was rejected and must not retry
+
+In messaging platforms (Telegram, Discord, Slack), the approval prompt is sent as a message with inline buttons.
+
+### Approval modes
+
+Configure the approval mode in `~/.hermes/config.yaml`:
+
+```yaml
+approvals:
+  mode: manual    # manual | smart | off
+```
+
+| Mode | Behavior |
+|------|----------|
+| `manual` | Always prompt the user (default) |
+| `smart` | An auxiliary LLM assesses risk first; auto-approves low-risk matches, prompts for high-risk ones |
+| `off` | Skip all approval prompts (equivalent to `--yolo`) |
+
+<Note>
+Smart mode is inspired by the OpenAI Codex Smart Approvals guardian subagent. It uses your configured auxiliary model (fast/cheap recommended) to assess whether a flagged command is a false positive before interrupting you.
+</Note>
+
+### Command allowlist
+
+Patterns approved with "Always" are saved to the `command_allowlist` in `config.yaml`:
+
+```yaml
+command_allowlist:
+  - "recursive delete"
+  - "shell command via -c/-lc flag"
+```
+
+Entries use human-readable description strings that match the pattern descriptions in the table above. Approved patterns skip the prompt for all future sessions until you remove them from the list.
+
+<Warning>
+Be selective about permanent allowlist entries. Broadly allowing "recursive delete" means any `rm -r` command will run without a prompt, including paths you may not expect.
+</Warning>
+
+To remove an allowlist entry, edit `~/.hermes/config.yaml` directly and remove the line from `command_allowlist`.
+
+### Tirith pre-exec scanning
+
+Hermes optionally integrates with [tirith](https://github.com/sheeki03/tirith) for additional pre-execution security scanning. Tirith detects homograph URLs, pipe-to-shell patterns, terminal injection, and environment manipulation.
+
+Install tirith:
+
+```bash
+brew install sheeki03/tap/tirith
+```
+
+Configure in `config.yaml`:
+
+```yaml
+security:
+  tirith_enabled: true
+  tirith_path: "tirith"
+  tirith_timeout: 5
+  tirith_fail_open: true   # Allow commands if tirith is unavailable
+```
+
+When tirith issues a `warn` finding, it's combined with the dangerous command check into a single approval prompt. When tirith issues a `block`, the command is rejected immediately with no approval option.
+
+## API key security
+
+All API keys are stored in `~/.hermes/.env`, which is created with `0600` permissions (owner read/write only). The directory `~/.hermes/` itself uses `0700` permissions.
+
+```bash
+# Verify permissions
+ls -la ~/.hermes/.env
+# -rw------- 1 you you ... .env
+```
+
+Keys are never written to `config.yaml`, never committed to version control, and never exposed to the agent in tool outputs. By default, Hermes redacts secrets from terminal output:
+
+```yaml
+security:
+  redact_secrets: true   # Redact API keys/tokens from tool output (default: on)
+```
+
+Set `redact_secrets: false` only for debugging authentication issues.
+
+## Security for messaging platforms
+
+### Allowed users
+
+Every platform supports an allowlist of user IDs. Messages from users not on the list are silently ignored.
+
+```bash
+# ~/.hermes/.env
+TELEGRAM_ALLOWED_USERS=123456789,987654321
+DISCORD_ALLOWED_USERS=123456789012345678
+SLACK_ALLOWED_USERS=U0123456789
+WHATSAPP_ALLOWED_USERS=15551234567
+SIGNAL_ALLOWED_USERS=+15551234567
+EMAIL_ALLOWED_USERS=you@example.com
+MATTERMOST_ALLOWED_USERS=userid123
+```
+
+To allow all users on all platforms (only for trusted internal deployments):
+
+```bash
+GATEWAY_ALLOW_ALL_USERS=true
+```
+
+<Warning>
+Leaving `GATEWAY_ALLOW_ALL_USERS=true` on a public bot exposes your agent — and any tools it has access to — to anyone who finds your bot. Only use this on private or internal deployments.
+</Warning>
+
+### DM pairing
+
+DM pairing is a code-based authorization mechanism. When enabled, users must send a one-time pairing code (generated out-of-band) before they can interact with the bot. This is useful for giving access to people without knowing their platform user IDs in advance.
+
+Pairing state is managed by the `PairingStore` and persists across gateway restarts.
+
+<AccordionGroup>
+  <Accordion title="Telegram-specific security">
+    By default the Telegram bot responds to anyone who messages it unless `TELEGRAM_ALLOWED_USERS` is set. Always set an allowlist for bots on public Telegram.
+
+    For group chats, the bot only responds to messages that mention it or are direct commands. Each participant in a group gets their own isolated session by default (`group_sessions_per_user: true` in config.yaml).
+  </Accordion>
+
+  <Accordion title="Discord-specific security">
+    In server channels the bot requires an @mention to respond by default:
+
+    ```yaml
+    discord:
+      require_mention: true          # Default — bot only responds when @mentioned
+      free_response_channels: ""     # Channel IDs where mention is not required
+      auto_thread: true              # Auto-create threads on @mention
+    ```
+
+    DMs do not require a mention.
+  </Accordion>
+
+  <Accordion title="Slack-specific security">
+    Slack access is controlled by `SLACK_ALLOWED_USERS`. The bot is invoked via `/hermes <subcommand>` or by mentioning it in a channel.
+
+    Required OAuth scopes constrain what the bot can see: it only reads channels and DMs it is invited to.
+  </Accordion>
+
+  <Accordion title="Email-specific security">
+    The `EMAIL_ALLOWED_USERS` list is compared to the `From:` header of incoming emails. Only emails from listed addresses trigger the agent.
+
+    For Gmail, use an [App Password](https://myaccount.google.com/apppasswords) rather than your account password — App Passwords can be revoked independently.
+  </Accordion>
+</AccordionGroup>
+
+## Container isolation
+
+Running Hermes with a container terminal backend (Docker, Singularity, Modal, or Daytona) provides strong isolation: the agent executes all terminal commands inside the container, not on your host machine.
+
+<Tip>
+Container backends are the recommended security posture for giving Hermes broad tool access. Dangerous command approval is automatically bypassed inside containers because the container itself provides the isolation boundary.
+</Tip>
+
+Configure the terminal backend in `~/.hermes/config.yaml`:
+
+```yaml
+terminal:
+  backend: "docker"
+  docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+  cwd: "/workspace"
+  docker_mount_cwd_to_workspace: false   # Off by default — opt in to mount host cwd
+  container_persistent: true            # Persist filesystem across sessions
+```
+
+### What isolation provides
+
+- Agent cannot read `~/.hermes/.env` (API keys stay on the host)
+- Agent cannot modify its own code
+- Destructive commands are contained within the container filesystem
+- Container is destroyed or reset at the end of the session (when `container_persistent: false`)
+
+### SSH remote execution
+
+Alternatively, run terminal commands on a remote server via SSH. The agent code stays on your local machine; only commands are forwarded:
+
+```yaml
+terminal:
+  backend: "ssh"
+  ssh_host: "my-server.example.com"
+  ssh_user: "agent"
+  ssh_port: 22
+  ssh_key: "~/.ssh/id_rsa"
+```
+
+This is a strong isolation model: the agent cannot reach your local filesystem or API keys file.
+
+### Serverless backends
+
+Modal and Daytona provide serverless persistence — the environment hibernates when idle and wakes on demand. This costs nearly nothing between sessions while still providing full container isolation.
+
+```yaml
+terminal:
+  backend: "modal"
+  modal_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+  container_persistent: true
+```

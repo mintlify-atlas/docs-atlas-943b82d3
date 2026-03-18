@@ -1,0 +1,160 @@
+---
+title: "Skills system"
+description: "Procedural memory that grows with you — autonomous skill creation, self-improvement, and the Skills Hub"
+---
+
+Skills are markdown files containing instructions that Hermes loads on demand. They are the agent's **procedural memory**: each skill captures a proven, reusable approach to a specific type of task — not general facts, but step-by-step know-how.
+
+## What skills are
+
+A skill is a directory containing a `SKILL.md` file plus optional supporting files (references, templates, scripts, assets). When you invoke a skill — either by name or via `/skills` — the agent injects its contents into the conversation as a user message, preserving Anthropic prompt caching.
+
+Skills are distinct from `MEMORY.md` (broad declarative facts) and `USER.md` (your profile). A skill answers the question: *how do I do this specific type of task?*
+
+## Skills location
+
+All skills live in `~/.hermes/skills/`. The directory is organized by category:
+
+```
+~/.hermes/skills/
+├── my-skill/
+│   ├── SKILL.md
+│   ├── references/
+│   ├── templates/
+│   └── scripts/
+└── category-name/
+    └── another-skill/
+        └── SKILL.md
+```
+
+## Built-in skill categories
+
+Hermes ships with a library of bundled skills covering common categories:
+
+| Category | Description |
+|----------|-------------|
+| `software-development` | Coding workflows, debugging, PR review, architecture |
+| `research` | Literature search, summarization, citation |
+| `productivity` | Task planning, meeting prep, writing assistance |
+| `data-science` | Data analysis, visualization, ML workflows |
+| `diagramming` | Mermaid, PlantUML, architecture diagrams |
+| `creative` | Writing, brainstorming, ideation |
+| `email` | Email drafting and triage |
+| `github` | Repository management, issue triage, PR workflows |
+| `media` | Image, audio, and video processing |
+| `note-taking` | Structured note capture and organization |
+| `social-media` | Content creation and scheduling |
+| `mlops` | Model training, deployment, monitoring |
+| `smart-home` | Home Assistant automations and controls |
+| `domain` | Domain-specific professional workflows |
+
+## Autonomous skill creation
+
+After completing a complex task, Hermes may offer to save the approach as a new skill. This happens when the agent determines the solution is novel enough to be worth keeping — a self-curating learning loop.
+
+You can also ask the agent to create a skill at any time:
+
+```
+Save what we just did as a skill called "deploy-to-fly"
+```
+
+The agent will create `~/.hermes/skills/deploy-to-fly/SKILL.md` with structured instructions, code examples, and any relevant references.
+
+## Skills self-improvement
+
+When you use a skill and the agent finds a better approach, it can update the skill in place. This means skills improve over time through use — the instructions become more accurate, edge cases get documented, and outdated steps get removed.
+
+## The `/skills` slash command
+
+The `/skills` command is your interactive interface for the skills library. Use it both in the CLI and on messaging platforms:
+
+| Subcommand | Description |
+|------------|-------------|
+| `/skills` | Open the interactive browser |
+| `/skills search <query>` | Search skills by name or description |
+| `/skills install <name>` | Install a skill from the Hub |
+| `/skills inspect <name>` | View a skill's full contents |
+| `/skills enable <name>` | Enable a bundled or installed skill |
+| `/skills disable <name>` | Disable a skill from autoloading |
+
+### Installing a skill from the Hub
+
+<Steps>
+  <Step title="Search the Hub">
+    Run `/skills search <topic>` to find community skills on agentskills.io. Results show the skill name, description, author, and trust level.
+  </Step>
+  <Step title="Inspect before installing">
+    Run `/skills inspect <identifier>` to read the full `SKILL.md` before installing. Skills are security-scanned automatically.
+  </Step>
+  <Step title="Install the skill">
+    Run `/skills install <identifier>` to download and install the skill to `~/.hermes/skills/`. Hub skills are saved under a subdirectory matching their source.
+  </Step>
+  <Step title="Invoke the skill">
+    Either type `/<skill-name>` as a slash command, or ask Hermes directly: *"use the deploy-to-fly skill"*.
+  </Step>
+</Steps>
+
+## Skills Hub
+
+The [Skills Hub at agentskills.io](https://agentskills.io) hosts community-contributed skills. Skills are tagged by category and trust level:
+
+- **Official** — bundled with Hermes, maintained by Nous Research
+- **Trusted** — vetted community contributions
+- **Community** — unvetted community contributions (inspect before installing)
+
+All skills downloaded from the Hub are scanned for injection and exfiltration patterns before installation.
+
+## Creating custom skills manually
+
+Create a directory in `~/.hermes/skills/` with a `SKILL.md` file:
+
+```bash
+mkdir -p ~/.hermes/skills/my-workflow
+```
+
+<AccordionGroup>
+  <Accordion title="SKILL.md format">
+    A well-structured skill file includes:
+
+    ```markdown
+    # Skill name
+
+    Brief description of what this skill is for.
+
+    ## When to use this skill
+
+    - Use case 1
+    - Use case 2
+
+    ## Steps
+
+    1. First step with specific commands or instructions
+    2. Second step
+    3. ...
+
+    ## Notes
+
+    - Edge cases, caveats, or warnings
+    - Known issues and workarounds
+
+    ## References
+
+    - Link or file reference
+    ```
+
+    Supporting files go in `references/`, `templates/`, `scripts/`, or `assets/` subdirectories.
+  </Accordion>
+  <Accordion title="Optional skills directory">
+    You can point Hermes at an additional skills directory using the `HERMES_OPTIONAL_SKILLS_DIR` environment variable. This is useful for team-shared skills stored in a repository:
+
+    ```bash
+    export HERMES_OPTIONAL_SKILLS_DIR=/path/to/team-skills
+    ```
+
+    Skills in the optional directory appear alongside skills in `~/.hermes/skills/`.
+  </Accordion>
+</AccordionGroup>
+
+## Compatibility
+
+Hermes skills follow the [agentskills.io](https://agentskills.io) open standard. Skills you create or install are portable to any agent that implements this standard.

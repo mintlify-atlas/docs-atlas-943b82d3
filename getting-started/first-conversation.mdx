@@ -1,0 +1,111 @@
+---
+title: "Your first conversation"
+description: "Configure your LLM provider and have your first conversation with Hermes"
+---
+
+<Steps>
+  <Step title="Configure a model provider">
+    Run the setup wizard to choose your inference provider:
+
+    ```bash
+    hermes setup
+    ```
+
+    The wizard presents a list of supported providers. Use the arrow keys to select one and press **Enter**:
+
+    | Provider | How it works |
+    |----------|--------------|
+    | **Nous Portal** | OAuth login — opens your browser. Requires a Nous Research subscription. |
+    | **OpenRouter** | API key. Access 100+ models from a single key. Get one at [openrouter.ai/keys](https://openrouter.ai/keys). |
+    | **OpenAI** | API key or OAuth (Codex). Get a key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys). |
+    | **Anthropic** | API key or Claude Code subscription credentials. Get a key at [console.anthropic.com](https://console.anthropic.com). |
+    | **Custom endpoint** | Any OpenAI-compatible API (vLLM, llama.cpp, etc.). Enter a base URL and optional API key. |
+
+    You can switch providers at any time with `hermes model` or `/model` inside a conversation.
+  </Step>
+
+  <Step title="Set your API key">
+    After selecting a provider, the wizard prompts you to enter your API key. Keys are saved to `~/.hermes/.env` with owner-only permissions (`0600`).
+
+    For providers that use OAuth (Nous Portal, OpenAI Codex), the wizard opens your browser to complete login — no API key is required.
+
+    To set or update a key later without re-running the full wizard:
+
+    ```bash
+    hermes config set OPENROUTER_API_KEY sk-or-...
+    ```
+
+    Or edit `~/.hermes/.env` directly.
+  </Step>
+
+  <Step title="Start Hermes">
+    Launch the interactive terminal UI:
+
+    ```bash
+    hermes
+    ```
+
+    You'll see the Hermes banner showing your active provider and model. Type a message and press **Enter**:
+
+    ```
+    > Write a Python function that reverses a linked list.
+    ```
+
+    Hermes responds in a streaming panel. When the agent uses tools, you see live tool output in the activity feed:
+
+    ```
+    ┊ terminal → python3 solution.py
+    ┊  Running tests...
+    ┊  All 5 tests passed.
+    ```
+
+    The `┊` prefix marks tool output. Each tool call — file reads, shell commands, web searches — streams as it runs so you always know what the agent is doing.
+  </Step>
+
+  <Step title="Use slash commands">
+    Type `/` at the prompt to see autocomplete suggestions. Key commands:
+
+    | Command | What it does |
+    |---------|--------------|
+    | `/new` | Start a fresh conversation (clears context) |
+    | `/model [provider:model]` | Switch model mid-conversation, e.g. `/model openrouter:google/gemini-2.5-pro` |
+    | `/help` | Show all available slash commands with descriptions |
+    | `/quit` | Exit Hermes |
+    | `/compress` | Summarize the current context to free up token budget |
+    | `/usage` | Show token usage and estimated cost for the current session |
+    | `/retry` | Re-send the last message (useful after an error or interruption) |
+    | `/skills` | Browse and install skills from the Skills Hub |
+
+    <Tip>
+      Run `/help` at any time to see the full list of commands, organized by category. Commands that are only available in the CLI or only in messaging platforms are labeled accordingly.
+    </Tip>
+
+    To interrupt the agent mid-task, press **Ctrl+C**. You can send a follow-up message to redirect it without losing context.
+  </Step>
+</Steps>
+
+## What Hermes remembers
+
+Hermes maintains persistent memory across sessions:
+
+- **MEMORY.md** — a curated, bounded list of facts the agent has learned about your preferences, projects, and working style.
+- **USER.md** — a user profile the agent builds over time (goals, communication style, frequently used tools).
+
+Both files live in `~/.hermes/` and are injected into the system prompt on every session. The agent updates them autonomously — you can also edit them directly.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="CLI Reference" href="/reference/cli-commands">
+    All `hermes` subcommands and flags.
+  </Card>
+  <Card title="Configuration" href="/user-guide/configuration">
+    Customize the model, toolsets, terminal backend, and display.
+  </Card>
+  <Card title="Tools & Toolsets" href="/user-guide/features/tools">
+    40+ built-in tools and how to enable or disable them.
+  </Card>
+  <Card title="Messaging Gateway" href="/user-guide/messaging">
+    Connect Hermes to Telegram, Discord, Slack, WhatsApp, and more.
+  </Card>
+</CardGroup>

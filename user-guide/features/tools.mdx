@@ -1,0 +1,219 @@
+---
+title: "Tools & toolsets"
+description: "40+ built-in tools, the toolset system, and per-platform configuration"
+---
+
+Hermes ships with over 40 tools organized into named **toolsets**. Every platform (CLI, Telegram, Discord, etc.) uses the same core tool list. You can enable or disable individual tools without touching code.
+
+## What tools are
+
+Tools are functions the agent calls during a conversation. When you ask Hermes to do something, it decides which tools to invoke, runs them, reads the results, and continues reasoning. Tools are the mechanism behind everything from running a terminal command to searching the web to creating a scheduled task.
+
+Each tool has:
+- A name the model uses to call it
+- A JSON schema describing its parameters
+- A handler function that runs the actual logic
+- An optional availability check (e.g., requiring an API key)
+
+## The toolset system
+
+Tools are grouped into **toolsets** — named collections you can enable or disable together. The default toolset for the CLI is `hermes-cli`, which includes every core tool. You can compose custom toolsets from individual tools or from other toolsets.
+
+Some toolsets are **composite**: they include other toolsets by reference. For example, the `debugging` toolset includes `web`, `file`, and direct `terminal`/`process` tools.
+
+Configure active toolsets in `~/.hermes/config.yaml`:
+
+```yaml
+toolsets:
+  - hermes-cli
+```
+
+## Core tools
+
+The `_HERMES_CORE_TOOLS` list defines every tool enabled on all platforms by default.
+
+### Web
+
+| Tool | Description |
+|------|-------------|
+| `web_search` | Search the web and return titles, URLs, and descriptions |
+| `web_extract` | Scrape and summarize content from specific URLs |
+
+The web backend is configurable (`firecrawl`, `parallel`, or `tavily`). Set `web.backend` in `config.yaml` or choose during `hermes tools` setup.
+
+### Terminal & processes
+
+| Tool | Description |
+|------|-------------|
+| `terminal` | Execute shell commands; supports foreground, background, PTY mode, and per-command `workdir` |
+| `process` | Manage background processes: poll, wait, list, kill |
+
+The `terminal` tool routes to whichever backend is configured (`local`, `docker`, `ssh`, `modal`, `daytona`, or `singularity`). See [Terminal backends](/user-guide/features/terminal-backends) for details.
+
+**Background mode** — pass `background=true` to get a `session_id` immediately. Use `process(action="wait")` to block until it completes, or `process(action="poll")` to check progress without blocking.
+
+**PTY mode** — pass `pty=true` for interactive CLI tools (Python REPL, Codex, Claude Code) that require a pseudo-terminal.
+
+### File operations
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read files with line numbers and pagination (`offset`/`limit`); use instead of `cat` |
+| `write_file` | Write or overwrite a file; creates parent directories automatically |
+| `patch` | Targeted find-and-replace using fuzzy matching (9 strategies); use instead of `sed`/`awk` |
+| `search_files` | Search file contents (regex) or find files by glob; use instead of `grep`/`find`/`ls` |
+
+### Vision & image generation
+
+| Tool | Description |
+|------|-------------|
+| `vision_analyze` | Analyze an image and answer questions about it |
+| `image_generate` | Generate an image from a text description |
+
+### Browser automation
+
+| Tool | Description |
+|------|-------------|
+| `browser_navigate` | Open a URL in a managed browser |
+| `browser_snapshot` | Capture a DOM/accessibility snapshot of the current page |
+| `browser_click` | Click an element by selector or coordinates |
+| `browser_type` | Type text into a focused input |
+| `browser_scroll` | Scroll the page or a specific element |
+| `browser_back` | Navigate back |
+| `browser_press` | Press a keyboard key |
+| `browser_close` | Close the current tab |
+| `browser_get_images` | Extract image URLs from the page |
+| `browser_vision` | Analyze the current page with vision |
+| `browser_console` | Read the browser console log |
+
+### Code execution & delegation
+
+| Tool | Description |
+|------|-------------|
+| `execute_code` | Run a Python script that calls tools via RPC; collapses multi-step pipelines into a single turn |
+| `delegate_task` | Spawn an isolated subagent with its own context window for complex parallel subtasks |
+
+### Planning & memory
+
+| Tool | Description |
+|------|-------------|
+| `todo` | Create and track a task list for multi-step work |
+| `memory` | Read and write persistent memory (MEMORY.md / USER.md) |
+| `session_search` | Full-text search across past conversations with LLM summarization |
+
+### Skills
+
+| Tool | Description |
+|------|-------------|
+| `skills_list` | List available skills with filtering and search |
+| `skill_view` | Read the content of a specific skill |
+| `skill_manage` | Create, edit, patch, or delete skills |
+
+### Scheduling & messaging
+
+| Tool | Description |
+|------|-------------|
+| `cronjob` | Create, list, edit, pause, resume, trigger, and remove scheduled jobs |
+| `send_message` | Send a message to any connected platform (Telegram, Discord, Slack, etc.) |
+| `text_to_speech` | Convert text to audio using Edge TTS, ElevenLabs, or OpenAI |
+| `clarify` | Ask the user a clarifying question (multiple-choice or open-ended) |
+
+### Mixture of agents
+
+| Tool | Description |
+|------|-------------|
+| `mixture_of_agents` | Run advanced multi-model reasoning for complex problem-solving |
+
+### Honcho memory (optional)
+
+| Tool | Description |
+|------|-------------|
+| `honcho_context` | Retrieve context from Honcho user modeling |
+| `honcho_profile` | Read the Honcho user profile |
+| `honcho_search` | Search Honcho memory |
+| `honcho_conclude` | Write session conclusions to Honcho |
+
+Honcho tools are gated on the Honcho integration being active. See [Memory](/user-guide/features/memory) for setup.
+
+### Home Assistant (optional)
+
+| Tool | Description |
+|------|-------------|
+| `ha_list_entities` | List Home Assistant entities |
+| `ha_get_state` | Get the current state of an entity |
+| `ha_list_services` | List available services |
+| `ha_call_service` | Call a Home Assistant service |
+
+Home Assistant tools are gated on the `HASS_TOKEN` environment variable.
+
+## Tool categories
+
+<CardGroup cols={2}>
+  <Card title="Web" icon="globe">
+    `web_search`, `web_extract` — research and content extraction
+  </Card>
+  <Card title="Terminal" icon="terminal">
+    `terminal`, `process` — command execution and process management
+  </Card>
+  <Card title="Files" icon="file">
+    `read_file`, `write_file`, `patch`, `search_files` — file manipulation
+  </Card>
+  <Card title="Browser" icon="browser">
+    11 browser tools — full web automation via Browserbase
+  </Card>
+  <Card title="Vision" icon="eye">
+    `vision_analyze`, `image_generate` — image analysis and generation
+  </Card>
+  <Card title="Memory & Skills" icon="brain">
+    `memory`, `todo`, `session_search`, `skills_list`, `skill_view`, `skill_manage`
+  </Card>
+  <Card title="Delegation" icon="share">
+    `execute_code`, `delegate_task` — code execution and subagent spawning
+  </Card>
+  <Card title="Scheduling" icon="clock">
+    `cronjob`, `send_message` — cron jobs and cross-platform messaging
+  </Card>
+</CardGroup>
+
+## Enabling and disabling tools
+
+### `hermes tools` command
+
+Run `hermes tools` from your terminal to open an interactive menu for enabling or disabling tools per platform:
+
+```bash
+hermes tools
+```
+
+This writes your choices to `~/.hermes/config.yaml` under the `toolsets` key.
+
+### `/tools` slash command
+
+Inside a running chat session, use `/tools` to see which tools are currently active.
+
+### Per-platform configuration
+
+Each platform can have its own toolset. The platform toolsets (`hermes-cli`, `hermes-telegram`, `hermes-discord`, etc.) all use the same `_HERMES_CORE_TOOLS` list by default. To restrict a platform, define a custom toolset:
+
+```yaml
+# ~/.hermes/config.yaml
+toolsets:
+  - web
+  - file
+  - terminal
+```
+
+Or reference one of the built-in scenario toolsets:
+
+| Toolset | Description |
+|---------|-------------|
+| `safe` | No terminal; includes web, vision, image generation, and MoA |
+| `debugging` | Terminal + web + file tools |
+| `research` | Web + vision |
+| `browser` | Full browser automation + web search |
+| `code_execution` | `execute_code` only |
+| `delegation` | `delegate_task` only |
+
+<Note>
+Changing toolsets takes effect on the next session start. Toolset changes mid-conversation would break Anthropic prompt caching and significantly increase API costs.
+</Note>

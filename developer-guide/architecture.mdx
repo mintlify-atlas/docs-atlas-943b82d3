@@ -1,0 +1,243 @@
+---
+title: "Architecture"
+description: "Project structure, agent loop, key classes, and how components connect"
+---
+
+## Project structure
+
+```
+hermes-agent/
+├── run_agent.py          # AIAgent class — core conversation loop
+├── model_tools.py        # Tool orchestration, _discover_tools(), handle_function_call()
+├── toolsets.py           # Toolset definitions, _HERMES_CORE_TOOLS list
+├── cli.py                # HermesCLI class — interactive CLI orchestrator
+├── hermes_state.py       # SessionDB — SQLite session store (FTS5 search)
+├── agent/                # Agent internals
+│   ├── prompt_builder.py     # System prompt assembly
+│   ├── context_compressor.py # Auto context compression
+│   ├── prompt_caching.py     # Anthropic prompt caching
+│   ├── auxiliary_client.py   # Auxiliary LLM client (vision, summarization)
+│   ├── model_metadata.py     # Model context lengths, token estimation
+│   ├── display.py            # KawaiiSpinner, tool preview formatting
+│   ├── skill_commands.py     # Skill slash commands (shared CLI/gateway)
+│   └── trajectory.py         # Trajectory saving helpers
+├── hermes_cli/           # CLI subcommands and setup
+│   ├── main.py           # Entry point — all `hermes` subcommands
+│   ├── config.py         # DEFAULT_CONFIG, OPTIONAL_ENV_VARS, migration
+│   ├── commands.py       # Slash command definitions + SlashCommandCompleter
+│   ├── callbacks.py      # Terminal callbacks (clarify, sudo, approval)
+│   ├── setup.py          # Interactive setup wizard
+│   ├── skin_engine.py    # Skin/theme engine — CLI visual customization
+│   ├── skills_config.py  # `hermes skills` — enable/disable skills per platform
+│   ├── tools_config.py   # `hermes tools` — enable/disable tools per platform
+│   ├── skills_hub.py     # `/skills` slash command (search, browse, install)
+│   ├── models.py         # Model catalog, provider model lists
+│   └── auth.py           # Provider credential resolution
+├── tools/                # Tool implementations (one file per tool)
+│   ├── registry.py       # Central tool registry (schemas, handlers, dispatch)
+│   ├── approval.py       # Dangerous command detection
+│   ├── terminal_tool.py  # Terminal orchestration
+│   ├── process_registry.py # Background process management
+│   ├── file_tools.py     # File read/write/search/patch
+│   ├── web_tools.py      # Web search/extract (Parallel + Firecrawl)
+│   ├── browser_tool.py   # Browserbase browser automation
+│   ├── code_execution_tool.py # execute_code sandbox
+│   ├── delegate_tool.py  # Subagent delegation
+│   ├── mcp_tool.py       # MCP client (~1050 lines)
+│   └── environments/     # Terminal backends (local, docker, ssh, modal, daytona, singularity)
+├── gateway/              # Messaging platform gateway
+│   ├── run.py            # Main loop, slash commands, message dispatch
+│   ├── session.py        # SessionStore — conversation persistence
+│   └── platforms/        # Adapters: telegram, discord, slack, whatsapp, homeassistant, signal
+├── acp_adapter/          # ACP server (VS Code / Zed / JetBrains integration)
+├── cron/                 # Scheduler (jobs.py, scheduler.py)
+├── environments/         # RL training environments (Atropos)
+├── tests/                # Pytest suite (~3000 tests)
+└── batch_runner.py       # Parallel batch processing
+```
+
+**User config:** `~/.hermes/config.yaml` (settings), `~/.hermes/.env` (API keys)
+
+## File dependency chain
+
+The import chain is strictly one-directional. `tools/registry.py` has no upstream dependencies and is safe to import from any tool file without risk of circular imports.
+
+| Layer | Files | Role |
+|-------|-------|------|
+| Foundation | `tools/registry.py` | No deps — singleton registry |
+| Tools | `tools/*.py` | Each calls `registry.register()` at import time |
+| Orchestration | `model_tools.py` | Imports registry + triggers tool discovery |
+| Entry points | `run_agent.py`, `cli.py`, `batch_runner.py`, `environments/` | Consume `model_tools` public API |
+
+```
+tools/registry.py  (no deps — imported by all tool files)
+       ↑
+tools/*.py  (each calls registry.register() at import time)
+       ↑
+model_tools.py  (imports tools/registry + triggers tool discovery)
+       ↑
+run_agent.py, cli.py, batch_runner.py, environments/
+```
+
+## AIAgent class
+
+Defined in `run_agent.py`. All agent sessions go through this class, whether invoked from the CLI, the messaging gateway, batch processing, or RL environments.
+
+```python
+class AIAgent:
+    def __init__(self,
+        model: str = "anthropic/claude-opus-4.6",
+        max_iterations: int = 90,
+        enabled_toolsets: list = None,
+        disabled_toolsets: list = None,
+        quiet_mode: bool = False,
+        save_trajectories: bool = False,
+        platform: str = None,           # "cli", "telegram", etc.
+        session_id: str = None,
+        skip_context_files: bool = False,
+        skip_memory: bool = False,
+        # ... plus provider, api_mode, callbacks, routing params
+    ): ...
+
+    def chat(self, message: str) -> str:
+        """Simple interface — returns final response string."""
+
+    def run_conversation(self, user_message: str, system_message: str = None,
+                         conversation_history: list = None, task_id: str = None) -> dict:
+        """Full interface — returns dict with final_response + messages."""
+```
+
+### Constructor parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | `str` | `"anthropic/claude-opus-4.6"` | OpenRouter-format model ID |
+| `max_iterations` | `int` | `90` | Maximum LLM call iterations (shared with subagents) |
+| `enabled_toolsets` | `list` | `None` | Allowlist of toolsets to activate |
+| `disabled_toolsets` | `list` | `None` | Denylist of toolsets to suppress |
+| `quiet_mode` | `bool` | `False` | Suppress startup/progress output |
+| `save_trajectories` | `bool` | `False` | Write JSONL trajectory files |
+| `platform` | `str` | `None` | `"cli"`, `"telegram"`, etc. — injects platform hints |
+| `session_id` | `str` | `None` | Pre-assigned session ID (auto-generated if omitted) |
+| `skip_context_files` | `bool` | `False` | Skip auto-injecting SOUL.md, AGENTS.md, .cursorrules |
+| `skip_memory` | `bool` | `False` | Skip loading persistent memory |
+
+### `chat()` method
+
+The simple interface. Takes a single message string, runs the full agent loop, and returns the final response string. Suitable for programmatic use where you don't need conversation history.
+
+### `run_conversation()` method
+
+The full interface. Returns a dict with `final_response` (string) and `messages` (full conversation history). Accepts optional `system_message` to override the built-in system prompt, `conversation_history` for multi-turn sessions, and `task_id` for terminal/browser session isolation.
+
+## Agent loop
+
+The core loop lives in `run_conversation()` and is entirely synchronous. Async tool handlers are bridged internally via `_run_async()` in `model_tools.py`.
+
+```python
+while api_call_count < self.max_iterations and self.iteration_budget.remaining > 0:
+    response = client.chat.completions.create(model=model, messages=messages, tools=tool_schemas)
+    if response.tool_calls:
+        for tool_call in response.tool_calls:
+            result = handle_function_call(tool_call.name, tool_call.args, task_id)
+            messages.append(tool_result_message(result))
+        api_call_count += 1
+    else:
+        return response.content
+```
+
+**Iteration budget:** A `IterationBudget` object is shared between the parent agent and all subagents spawned via `delegate_task`. This ensures the total number of LLM calls across the entire tree stays within `max_iterations`. `execute_code` turns are refunded so they don't consume budget.
+
+**Budget pressure:** As the agent approaches `max_iterations`, pressure warnings are injected into tool result JSON (not as separate messages) to nudge the model toward wrapping up.
+
+## Message format
+
+Messages follow the OpenAI-compatible role/content format:
+
+```python
+# System message (built once per session)
+{"role": "system", "content": "..."}
+
+# User message
+{"role": "user", "content": "..."}
+
+# Assistant message (may include reasoning)
+{"role": "assistant", "content": "...", "reasoning": "..."}
+
+# Tool result message
+{"role": "tool", "tool_call_id": "...", "content": "..."}
+```
+
+Reasoning/thinking content is stored in `assistant_msg["reasoning"]` and stripped from the user-facing response.
+
+## CLI architecture
+
+The CLI entry point is `HermesCLI` in `cli.py`. It composes several libraries:
+
+- **Rich** — banner panels, formatted output
+- **prompt_toolkit** — fixed input area, slash command autocomplete, history navigation
+- **KawaiiSpinner** (`agent/display.py`) — animated faces during API calls, `┊` activity feed for tool results
+
+### Config loading
+
+There are two separate config-loading systems that serve different consumers:
+
+| Loader | Used by | Location |
+|--------|---------|----------|
+| `load_cli_config()` | Interactive CLI mode | `cli.py` |
+| `load_config()` | `hermes tools`, `hermes setup` | `hermes_cli/config.py` |
+| Direct YAML load | Messaging gateway | `gateway/run.py` |
+
+`load_cli_config()` merges hardcoded defaults with the user's `~/.hermes/config.yaml`. Do not mix these loaders — they serve different code paths.
+
+### Slash command dispatch
+
+`process_command()` is a method on `HermesCLI`. It resolves incoming text against the central `COMMAND_REGISTRY` via `resolve_command()`, which handles aliases, and then dispatches on the canonical command name.
+
+Skill slash commands are handled separately by `agent/skill_commands.py`. It scans `~/.hermes/skills/` and injects skill invocations as **user messages** (not system prompt additions) to preserve prompt caching.
+
+## Gateway architecture
+
+The messaging gateway (`gateway/run.py`) runs a `GatewayRunner` that manages:
+
+- **Platform adapters** — one per messaging platform (Telegram, Discord, Slack, WhatsApp, Signal, Email, Home Assistant), each translating platform events into the shared message model
+- **Session store** (`gateway/session.py`) — `SessionStore` for per-user conversation persistence, context prompts, and reset policies
+- **Hooks** — `GATEWAY_KNOWN_COMMANDS` frozenset triggers hook emission on recognized slash commands
+
+The gateway loads config via a direct YAML read (not `load_cli_config()`). Gateway sessions are isolated per user and per platform.
+
+## Prompt caching
+
+Hermes automatically enables Anthropic prompt caching for Claude models on OpenRouter and for native Anthropic API calls. Caching reduces input token costs by ~75% on multi-turn conversations by caching the stable conversation prefix.
+
+<Warning>
+**Do not break prompt caching.** Any change that alters past context, swaps toolsets, or rebuilds the system prompt mid-conversation invalidates the cache and dramatically increases costs. The ONLY legitimate time to alter context mid-conversation is during context compression.
+
+Do NOT:
+- Alter past messages mid-conversation
+- Change toolsets mid-conversation
+- Reload memories or rebuild system prompts mid-conversation
+</Warning>
+
+Skill content is injected as user messages (not system prompt) specifically to keep the cached system prefix stable.
+
+## Context compression
+
+Context compression is handled by `ContextCompressor` in `agent/context_compressor.py`. It activates automatically when the conversation approaches the model's context limit (default threshold: 50%).
+
+**What it does:**
+1. Summarizes older messages in the conversation history using an auxiliary LLM call
+2. Replaces the summarized messages with a compact summary message
+3. Preserves the most recent messages (configurable `protect_last_n`)
+4. Preserves the first few messages (configurable `protect_first_n`)
+
+Compression is the one legitimate exception to the no-mid-conversation-context-change rule — it is the only operation that may alter the cached prefix.
+
+Configuration via `config.yaml`:
+
+```yaml
+compression:
+  enabled: true
+  threshold: 0.50        # Compress at 50% of context limit
+  summary_model: null    # Use same model as agent (or override)
+```

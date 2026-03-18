@@ -1,0 +1,362 @@
+---
+title: "Messaging gateway"
+description: "Connect Hermes to Telegram, Discord, Slack, WhatsApp, Signal, and more"
+---
+
+## Overview
+
+The messaging gateway lets you talk to Hermes from any supported platform while the agent runs on a server, VPS, or cloud instance. It runs as a persistent process (or system service) that bridges incoming messages from your preferred platform to the Hermes agent loop and delivers responses back.
+
+This complements the CLI: use the CLI for interactive development sessions on your machine, and the gateway for anywhere-access from your phone, for unattended background tasks, and for receiving cron job notifications and background process updates.
+
+## Supported platforms
+
+<CardGroup cols={2}>
+  <Card title="Telegram" icon="telegram">
+    Full-featured. Bot token from @BotFather. Supports voice memos, images, documents, threads.
+  </Card>
+  <Card title="Discord" icon="discord">
+    Full-featured. Bot token from Developer Portal. Supports threads, attachments, server + DM.
+  </Card>
+  <Card title="Slack" icon="slack">
+    Full-featured via Socket Mode. Slash commands via `/hermes`. Supports channels, DMs, threads.
+  </Card>
+  <Card title="WhatsApp" icon="whatsapp">
+    Built-in Baileys bridge — no third-party API needed. Pair with `hermes whatsapp`.
+  </Card>
+  <Card title="Signal" icon="shield">
+    Via signal-cli HTTP bridge. Supports groups and DMs.
+  </Card>
+  <Card title="Email" icon="envelope">
+    IMAP/SMTP. Works with Gmail (App Password), Outlook, and any standard mail server.
+  </Card>
+  <Card title="Matrix" icon="grid-2">
+    Via any Matrix homeserver. Access token or password login.
+  </Card>
+  <Card title="Mattermost" icon="server">
+    Self-hosted Mattermost via bot or personal access token.
+  </Card>
+  <Card title="DingTalk" icon="message">
+    DingTalk enterprise messaging via client ID and secret.
+  </Card>
+  <Card title="Home Assistant" icon="home">
+    Home Assistant Assist pipeline integration.
+  </Card>
+</CardGroup>
+
+## Gateway setup
+
+<Steps>
+  <Step title="Run the setup wizard">
+    The setup wizard configures your provider, API keys, and any platforms you want to activate:
+
+    ```bash
+    hermes gateway setup
+    ```
+
+    This creates or updates `~/.hermes/.env` with the platform tokens you provide.
+  </Step>
+
+  <Step title="Start the gateway">
+    Run the gateway in the foreground to test:
+
+    ```bash
+    hermes gateway start
+    ```
+
+    Install as a persistent system service (systemd / launchd):
+
+    ```bash
+    hermes gateway install
+    hermes gateway start
+    ```
+
+    Other management commands:
+
+    ```bash
+    hermes gateway status      # Show running status and active platforms
+    hermes gateway stop        # Stop the service
+    hermes gateway uninstall   # Remove the service
+    ```
+  </Step>
+
+  <Step title="Send your first message">
+    Open the platform of your choice and send a message to your bot. The gateway will respond once the agent finishes processing.
+  </Step>
+</Steps>
+
+## Platform setup
+
+<Tabs>
+  <Tab title="Telegram">
+    <Steps>
+      <Step title="Create a bot">
+        Message [@BotFather](https://t.me/BotFather) on Telegram:
+
+        ```
+        /newbot
+        ```
+
+        Follow the prompts. BotFather gives you a bot token like `7123456789:AAH...`.
+      </Step>
+
+      <Step title="Add the token">
+        ```bash
+        # ~/.hermes/.env
+        TELEGRAM_BOT_TOKEN=7123456789:AAH...
+        ```
+      </Step>
+
+      <Step title="Restrict access (recommended)">
+        Get your Telegram user ID from [@userinfobot](https://t.me/userinfobot), then add it to `.env`:
+
+        ```bash
+        TELEGRAM_ALLOWED_USERS=123456789
+        ```
+
+        Comma-separate multiple IDs: `TELEGRAM_ALLOWED_USERS=123456789,987654321`
+      </Step>
+
+      <Step title="Start the gateway">
+        ```bash
+        hermes gateway start
+        ```
+
+        Your bot is live. Send it a message to confirm.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Discord">
+    <Steps>
+      <Step title="Create a Discord application">
+        Go to the [Discord Developer Portal](https://discord.com/developers/applications), create a new application, then navigate to **Bot** and click **Add Bot**.
+      </Step>
+
+      <Step title="Copy the bot token">
+        Under **Bot → Token**, click **Reset Token** and copy it:
+
+        ```bash
+        # ~/.hermes/.env
+        DISCORD_BOT_TOKEN=MTI...
+        ```
+      </Step>
+
+      <Step title="Configure required intents">
+        Under **Bot → Privileged Gateway Intents**, enable:
+        - **Server Members Intent**
+        - **Message Content Intent**
+      </Step>
+
+      <Step title="Invite the bot to your server">
+        Under **OAuth2 → URL Generator**, select `bot` scope with **Send Messages**, **Read Message History**, and **View Channels** permissions. Open the generated URL to invite the bot.
+      </Step>
+
+      <Step title="Restrict access (recommended)">
+        Add allowed Discord user IDs (right-click a user → Copy User ID):
+
+        ```bash
+        DISCORD_ALLOWED_USERS=123456789012345678
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Slack">
+    <Steps>
+      <Step title="Create a Slack app">
+        Go to [api.slack.com/apps](https://api.slack.com/apps) and click **Create New App → From Scratch**.
+      </Step>
+
+      <Step title="Enable Socket Mode">
+        Under **Socket Mode**, enable it and generate an App-Level Token with `connections:write` scope. This becomes `SLACK_APP_TOKEN`.
+      </Step>
+
+      <Step title="Configure OAuth scopes">
+        Under **OAuth & Permissions → Bot Token Scopes**, add:
+        `chat:write`, `app_mentions:read`, `channels:history`, `groups:history`,
+        `im:history`, `im:read`, `im:write`, `users:read`, `files:write`
+      </Step>
+
+      <Step title="Subscribe to events">
+        Under **Event Subscriptions**, enable and subscribe to:
+        `message.im`, `message.channels`, `message.groups`, `app_mention`
+      </Step>
+
+      <Step title="Install the app and copy tokens">
+        Install the app to your workspace. Copy the **Bot Token** (xoxb-...) and the **App-Level Token** (xapp-...):
+
+        ```bash
+        # ~/.hermes/.env
+        SLACK_BOT_TOKEN=xoxb-...
+        SLACK_APP_TOKEN=xapp-...
+        SLACK_ALLOWED_USERS=U0123456789
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="WhatsApp">
+    <Steps>
+      <Step title="Enable WhatsApp">
+        ```bash
+        # ~/.hermes/.env
+        WHATSAPP_ENABLED=true
+        ```
+      </Step>
+
+      <Step title="Pair your phone">
+        Run the pairing wizard:
+
+        ```bash
+        hermes whatsapp
+        ```
+
+        A QR code is displayed. Open WhatsApp on your phone → **Linked Devices → Link a Device** and scan it.
+      </Step>
+
+      <Step title="Restrict access (recommended)">
+        ```bash
+        # ~/.hermes/.env
+        WHATSAPP_ALLOWED_USERS=15551234567
+        ```
+
+        Use the phone number in E.164 format without `+`.
+      </Step>
+    </Steps>
+
+    <Note>
+      WhatsApp uses a built-in Baileys bridge — no third-party API subscription required.
+    </Note>
+  </Tab>
+
+  <Tab title="Signal">
+    <Steps>
+      <Step title="Install signal-cli">
+        Signal requires a running [signal-cli](https://github.com/AsamK/signal-cli) HTTP service:
+
+        ```bash
+        signal-cli daemon --http=localhost:8080
+        ```
+      </Step>
+
+      <Step title="Configure credentials">
+        ```bash
+        # ~/.hermes/.env
+        SIGNAL_ACCOUNT=+15551234567       # Your registered Signal number
+        SIGNAL_HTTP_URL=http://localhost:8080
+        SIGNAL_ALLOWED_USERS=+15559876543
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Email">
+    <Steps>
+      <Step title="Configure IMAP/SMTP">
+        ```bash
+        # ~/.hermes/.env
+        EMAIL_ADDRESS=hermes@gmail.com
+        EMAIL_PASSWORD=xxxx xxxx xxxx xxxx   # Gmail App Password
+        EMAIL_IMAP_HOST=imap.gmail.com
+        EMAIL_IMAP_PORT=993
+        EMAIL_SMTP_HOST=smtp.gmail.com
+        EMAIL_SMTP_PORT=587
+        EMAIL_POLL_INTERVAL=15              # Seconds between inbox checks
+        EMAIL_ALLOWED_USERS=you@example.com
+        ```
+      </Step>
+
+      <Step title="Gmail: create an App Password">
+        Enable 2FA on your Google account, then go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) to generate a 16-character App Password.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Slash commands in messaging
+
+Most slash commands work across both CLI and messaging platforms. Some are platform-specific:
+
+### Available on both CLI and messaging
+
+| Command | Description |
+|---------|-------------|
+| `/new` / `/reset` | Start a fresh session |
+| `/model [name]` | Show or change the current model |
+| `/personality [name]` | Set a personality |
+| `/retry` | Resend the last message |
+| `/undo` | Remove the last exchange |
+| `/compress` | Manually compress context |
+| `/usage` | Show token usage |
+| `/insights [days]` | Usage analytics |
+| `/background <prompt>` | Run a prompt in the background |
+| `/stop` | Kill running background processes |
+| `/voice [on\|off\|tts\|status]` | Voice mode control |
+| `/reload-mcp` | Reload MCP servers |
+| `/help` | Show available commands |
+
+### Messaging-only commands
+
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `/status` | — | Show session info |
+| `/sethome` | `/set-home` | Set this chat as the home channel |
+| `/update` | — | Update Hermes to the latest version |
+
+### CLI-only commands
+
+Commands like `/skin`, `/config`, `/tools`, `/cron`, `/history`, `/save`, `/rollback`, `/browser`, `/plugins`, `/verbose`, `/statusbar`, and `/paste` are only available in the interactive CLI.
+
+## Setting a home channel
+
+The home channel receives cron job notifications, background process completion messages, and `send_message` deliveries when no specific target is specified.
+
+In any platform chat, run:
+
+```
+/sethome
+```
+
+This saves the current chat ID as `TELEGRAM_HOME_CHANNEL`, `DISCORD_HOME_CHANNEL`, etc. in `config.yaml` and takes effect immediately.
+
+## Cross-platform message delivery
+
+When the agent uses the `send_message` tool, it can route messages to any connected platform:
+
+- Omit the target to deliver to the current platform's home channel
+- Specify a platform and chat ID to deliver elsewhere
+
+This enables cron jobs and background tasks to notify you on Telegram while you're running a Discord session, for example.
+
+## Voice memo transcription
+
+When a voice message or audio file is sent on Telegram, Discord, WhatsApp, or Slack, Hermes automatically transcribes it before passing it to the agent. No extra configuration is required beyond having a speech-to-text provider set up.
+
+The default STT provider is `local` (faster-whisper, runs on your machine, no API key needed). Switch to cloud STT in `config.yaml`:
+
+```yaml
+stt:
+  enabled: true
+  provider: local    # local | groq | openai
+  local:
+    model: base      # tiny | base | small | medium | large-v3
+```
+
+## Background process notifications
+
+When the agent launches a background process from a messaging platform, a watcher pushes status updates to your chat. Control verbosity in `~/.hermes/config.yaml`:
+
+```yaml
+display:
+  background_process_notifications: all   # all | result | error | off
+```
+
+| Value | Behavior |
+|-------|----------|
+| `all` | Running output updates + final completion message (default) |
+| `result` | Only the final message when the process finishes |
+| `error` | Only the final message when exit code is non-zero |
+| `off` | No watcher messages — process runs silently |
+
+You can also set this via the `HERMES_BACKGROUND_NOTIFICATIONS` environment variable.

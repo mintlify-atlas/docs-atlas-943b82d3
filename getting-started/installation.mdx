@@ -1,0 +1,181 @@
+---
+title: "Installation"
+description: "All supported installation methods for Hermes Agent"
+---
+
+## Prerequisites
+
+| Requirement | Notes |
+|-------------|-------|
+| **git** | Required to clone the repository. Install with `sudo apt install git` (Debian/Ubuntu), `xcode-select --install` (macOS), or your distro's package manager. |
+| **Python 3.11+** | The installer provisions Python automatically via `uv` — you do not need to install it manually. |
+| **Linux, macOS, or WSL2** | Native Windows is not supported. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) on Windows. |
+
+Node.js is installed automatically by the one-line installer (used by browser tools and the WhatsApp bridge).
+
+---
+
+## Install
+
+<Tabs>
+  <Tab title="One-line installer (recommended)">
+    The installer handles everything: Python, Node.js, all Python dependencies, the `mini-swe-agent` submodule (terminal backend), and the `hermes` CLI symlink.
+
+    <CodeGroup>
+      ```bash Linux / macOS / WSL2
+      curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+      ```
+    </CodeGroup>
+
+    After it completes, reload your shell:
+
+    <CodeGroup>
+      ```bash bash
+      source ~/.bashrc
+      ```
+
+      ```zsh zsh
+      source ~/.zshrc
+      ```
+    </CodeGroup>
+
+    Then run the setup wizard:
+
+    ```bash
+    hermes setup
+    ```
+
+    **Installer options**
+
+    Pass flags after `--` when piping through bash:
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup
+    ```
+
+    | Flag | Description |
+    |------|-------------|
+    | `--skip-setup` | Skip the interactive setup wizard at the end |
+    | `--branch NAME` | Install a specific git branch (default: `main`) |
+    | `--dir PATH` | Override the install directory (default: `~/.hermes/hermes-agent`) |
+    | `--no-venv` | Do not create a virtual environment |
+  </Tab>
+
+  <Tab title="Manual install">
+    Use manual install if you want to contribute to Hermes, pin a specific commit, or integrate it into an existing environment.
+
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/NousResearch/hermes-agent.git
+        cd hermes-agent
+        ```
+      </Step>
+
+      <Step title="Initialize the mini-swe-agent submodule">
+        `mini-swe-agent` is the terminal backend. It is required for the agent to run shell commands.
+
+        ```bash
+        git submodule update --init mini-swe-agent
+        ```
+
+        For RL/Atropos training work, also initialize the optional submodule:
+
+        ```bash
+        git submodule update --init tinker-atropos
+        ```
+      </Step>
+
+      <Step title="Create a virtual environment with uv">
+        Install `uv` if you don't have it:
+
+        ```bash
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        ```
+
+        Then create and activate the environment:
+
+        ```bash
+        uv venv .venv --python 3.11
+        source .venv/bin/activate
+        ```
+      </Step>
+
+      <Step title="Install dependencies">
+        ```bash
+        uv pip install -e ".[all,dev]"
+        uv pip install -e "./mini-swe-agent"
+        ```
+
+        If you initialized `tinker-atropos`:
+
+        ```bash
+        uv pip install -e "./tinker-atropos"
+        ```
+      </Step>
+
+      <Step title="Symlink the CLI command">
+        ```bash
+        mkdir -p ~/.local/bin
+        ln -sf "$(pwd)/.venv/bin/hermes" ~/.local/bin/hermes
+        ```
+
+        Make sure `~/.local/bin` is on your `PATH`:
+
+        ```bash
+        export PATH="$HOME/.local/bin:$PATH"
+        ```
+
+        Add the export to your `~/.bashrc` or `~/.zshrc` to make it permanent.
+      </Step>
+
+      <Step title="Run the setup wizard">
+        ```bash
+        hermes setup
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+---
+
+## Updating
+
+Update to the latest version with:
+
+```bash
+hermes update
+```
+
+This pulls the latest commits, updates Python dependencies, and re-syncs bundled skills. Your config (`~/.hermes/config.yaml`) and API keys (`~/.hermes/.env`) are not modified.
+
+---
+
+## Uninstalling
+
+```bash
+hermes uninstall
+```
+
+This removes the installed files and the `hermes` symlink. Your `~/.hermes/` directory (config, API keys, sessions, memories) is **not** deleted automatically — remove it manually if you want a clean slate:
+
+```bash
+rm -rf ~/.hermes
+```
+
+---
+
+## File locations
+
+All user data lives in `~/.hermes/`:
+
+| Path | Contents |
+|------|---------|
+| `~/.hermes/config.yaml` | All settings (model, toolsets, terminal backend, display, etc.) |
+| `~/.hermes/.env` | API keys and secrets |
+| `~/.hermes/SOUL.md` | Agent persona/identity file |
+| `~/.hermes/sessions/` | Conversation history (SQLite) |
+| `~/.hermes/skills/` | User-installed and bundled skills |
+| `~/.hermes/cron/` | Scheduled job definitions |
+| `~/.hermes/logs/` | Gateway and scheduler logs |

@@ -1,0 +1,297 @@
+---
+title: "Configuration"
+description: "Config file, providers, models, and all configuration options"
+---
+
+## Config files
+
+Hermes stores all configuration in `~/.hermes/`:
+
+| File | Purpose |
+|------|---------|
+| `~/.hermes/config.yaml` | All settings — model, terminal, display, memory, tools |
+| `~/.hermes/.env` | API keys and secrets (mode 0600, never committed) |
+
+The `.env` file is created at setup and secured with owner-only permissions. Never put API keys directly in `config.yaml`.
+
+## Managing config
+
+```bash
+hermes config set key value      # Set a single value (dot-notation for nested)
+hermes config edit               # Open config.yaml in your $EDITOR
+hermes setup                     # Re-run the full interactive setup wizard
+```
+
+You can also change many settings in-session with slash commands:
+
+```
+/model anthropic/claude-opus-4.6   # Change model
+/config                            # Show current configuration
+/skin slate                        # Change theme
+/verbose                           # Cycle tool progress level
+```
+
+## Model and provider selection
+
+Select your model interactively:
+
+```bash
+hermes model
+```
+
+Or set it directly:
+
+```bash
+hermes config set model anthropic/claude-opus-4.6
+```
+
+In-session:
+
+```
+/model openrouter:google/gemini-3-flash-preview
+/model nous:hermes-3-llama-3.1-405b
+```
+
+### Supported providers
+
+<Tabs>
+  <Tab title="Nous Portal">
+    The official Nous Research model portal. Authenticate via OAuth:
+
+    ```bash
+    hermes login
+    ```
+
+    Or use an API key — set `NOUS_API_KEY` in `~/.hermes/.env`. Set provider in config:
+
+    ```yaml
+    # ~/.hermes/config.yaml
+    model: "nous:hermes-3-llama-3.1-405b"
+    ```
+  </Tab>
+
+  <Tab title="OpenRouter">
+    Access 200+ models through one API key. Get your key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+    ```bash
+    # ~/.hermes/.env
+    OPENROUTER_API_KEY=sk-or-...
+    ```
+
+    ```yaml
+    # ~/.hermes/config.yaml
+    model: "anthropic/claude-opus-4.6"
+    ```
+
+    Use OpenRouter format (`provider/model`) for the model name.
+  </Tab>
+
+  <Tab title="OpenAI / Anthropic">
+    Direct API keys are supported for providers that don't route through OpenRouter.
+
+    ```bash
+    # ~/.hermes/.env
+    OPENAI_API_KEY=sk-...
+    ANTHROPIC_API_KEY=sk-ant-...
+    ```
+
+    When set, Hermes auto-detects and routes to the appropriate provider.
+  </Tab>
+
+  <Tab title="Custom endpoint">
+    Any OpenAI-compatible endpoint works:
+
+    ```bash
+    # ~/.hermes/.env
+    OPENAI_API_KEY=your-key
+    OPENAI_BASE_URL=https://your-endpoint/v1
+    ```
+
+    ```yaml
+    # ~/.hermes/config.yaml
+    model: "your-model-name"
+    ```
+  </Tab>
+</Tabs>
+
+### Other supported providers
+
+| Provider | Key(s) |
+|----------|--------|
+| Z.AI / GLM | `GLM_API_KEY` |
+| Kimi / Moonshot | `KIMI_API_KEY` |
+| MiniMax | `MINIMAX_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| Alibaba DashScope (Qwen) | `DASHSCOPE_API_KEY` |
+| OpenCode Zen | `OPENCODE_ZEN_API_KEY` |
+| OpenCode Go | `OPENCODE_GO_API_KEY` |
+
+## config.yaml reference
+
+Below is a representative `~/.hermes/config.yaml` with the most commonly tuned options:
+
+```yaml
+# Model
+model: "anthropic/claude-opus-4.6"
+
+# Agent behavior
+agent:
+  max_turns: 90          # Max tool-calling iterations per turn
+  reasoning_effort: "medium"  # none | low | minimal | medium | high | xhigh
+
+# Terminal backend
+terminal:
+  backend: "local"       # local | docker | ssh | modal | daytona | singularity
+  cwd: "."               # Working directory (. = current dir for CLI)
+  timeout: 180
+
+# Context compression
+compression:
+  enabled: true
+  threshold: 0.50        # Compress at 50% context usage
+  summary_model: "google/gemini-3-flash-preview"
+
+# Display
+display:
+  skin: "default"        # default | ares | mono | slate | poseidon | sisyphus | charizard
+  tool_progress: "all"   # off | new | all | verbose
+  show_reasoning: false
+  streaming: false
+  compact: false
+
+# Memory
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200   # ~800 tokens
+  user_char_limit: 1375     # ~500 tokens
+  nudge_interval: 10
+  flush_min_turns: 6
+
+# Approval mode for dangerous commands
+approvals:
+  mode: "manual"         # manual | smart | off
+```
+
+## Configuration sections
+
+<Tabs>
+  <Tab title="Model">
+    ```yaml
+    model: "anthropic/claude-opus-4.6"
+
+    agent:
+      max_turns: 90
+      reasoning_effort: "medium"   # none | low | minimal | medium | high | xhigh
+
+    # Fallback provider if primary is rate-limited or unavailable
+    # fallback_model:
+    #   provider: openrouter
+    #   model: anthropic/claude-sonnet-4
+
+    # Route short messages to a cheaper model
+    smart_model_routing:
+      enabled: false
+      max_simple_chars: 160
+      max_simple_words: 28
+      cheap_model:
+        provider: openrouter
+        model: google/gemini-2.5-flash
+    ```
+  </Tab>
+
+  <Tab title="Terminal">
+    ```yaml
+    terminal:
+      backend: "local"       # local | docker | ssh | modal | daytona | singularity
+      cwd: "."
+      timeout: 180
+
+      # Docker-specific
+      docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+      docker_mount_cwd_to_workspace: false
+      docker_volumes: []
+      docker_forward_env: []
+
+      # Container resource limits (docker, modal, daytona, singularity)
+      container_cpu: 1
+      container_memory: 5120   # MB
+      container_disk: 51200    # MB
+      container_persistent: true
+
+      # SSH-specific
+      # ssh_host: "my-server.example.com"
+      # ssh_user: "myuser"
+      # ssh_port: 22
+      # ssh_key: "~/.ssh/id_rsa"
+    ```
+  </Tab>
+
+  <Tab title="Display">
+    ```yaml
+    display:
+      skin: "default"        # default | ares | mono | slate | ...
+      compact: false
+      tool_progress: "all"   # off | new | all | verbose
+      show_reasoning: false
+      streaming: false
+      bell_on_complete: false
+      show_cost: false
+      background_process_notifications: "all"  # all | result | error | off
+    ```
+  </Tab>
+
+  <Tab title="Memory">
+    ```yaml
+    memory:
+      memory_enabled: true
+      user_profile_enabled: true
+      memory_char_limit: 2200   # ~800 tokens
+      user_char_limit: 1375     # ~500 tokens
+      nudge_interval: 10        # Remind agent every N turns
+      flush_min_turns: 6        # Save memories before exit after N turns
+
+    # Messaging platform session resets
+    session_reset:
+      mode: both           # both | idle | daily | none
+      idle_minutes: 1440   # 24 hours
+      at_hour: 4           # Daily reset at 4 AM
+    ```
+  </Tab>
+</Tabs>
+
+## Environment variables vs config.yaml
+
+Hermes uses two distinct systems:
+
+- **`~/.hermes/.env`** — API keys, tokens, and passwords. Never exposed to the agent. Loaded on startup and overrides stale shell exports.
+- **`~/.hermes/config.yaml`** — All behavioral settings. The authoritative source for model, terminal, display, and memory configuration.
+
+When both set the same value, `config.yaml` wins for terminal settings; `.env` wins for API keys.
+
+<Tip>
+Use `hermes config set key value` with dot notation to set nested values without manually editing YAML:
+
+```bash
+hermes config set terminal.backend docker
+hermes config set display.skin slate
+hermes config set compression.threshold 0.75
+```
+</Tip>
+
+## Config version migration
+
+Hermes uses a `_config_version` field in `config.yaml` (currently `10`) to track schema changes. When you update Hermes, it automatically:
+
+1. Detects that your config is on an older version
+2. Merges any new default fields into your config
+3. Prompts for any new optional API keys that were added
+4. Bumps `_config_version` to the latest value
+
+You can trigger migration manually:
+
+```bash
+hermes setup
+```
+
+No existing config values are overwritten during migration — only missing keys are added.

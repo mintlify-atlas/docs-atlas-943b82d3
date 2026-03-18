@@ -1,0 +1,146 @@
+---
+title: "Cron scheduling"
+description: "Schedule tasks to run automatically with delivery to any platform"
+---
+
+Hermes has a built-in cron scheduler that runs agent tasks on a schedule and delivers results to any connected platform. Use it for daily reports, nightly backups, weekly summaries, or any recurring workflow.
+
+## How it works
+
+Each scheduled job stores a prompt, a schedule expression, and optional delivery settings. The scheduler runs as a background process (started with `hermes cron start`) and fires the agent with the stored prompt at the scheduled time. Results are saved to `~/.hermes/cron/output/` and optionally delivered to a platform.
+
+## The `hermes cron` subcommand
+
+Manage the scheduler from the command line:
+
+```bash
+hermes cron start    # Start the scheduler daemon
+hermes cron stop     # Stop the scheduler
+hermes cron status   # Show scheduler status and next run times
+hermes cron list     # List all scheduled jobs
+```
+
+## The `/cron` slash command
+
+Inside a chat session, use `/cron` to manage jobs interactively:
+
+| Subcommand | Description |
+|------------|-------------|
+| `/cron` or `/cron list` | List all scheduled jobs with status |
+| `/cron add <schedule> <prompt>` | Create a new job |
+| `/cron edit <id>` | Edit a job's prompt or schedule |
+| `/cron pause <id>` | Pause a job without deleting it |
+| `/cron resume <id>` | Resume a paused job |
+| `/cron run <id>` | Trigger a job immediately |
+| `/cron remove <id>` | Delete a job permanently |
+
+You can also describe what you want in natural language and the agent will create the job for you:
+
+```
+Schedule a daily summary of my inbox every morning at 8am
+```
+
+## Schedule formats
+
+<CodeGroup>
+
+```text Natural language
+# One-shot jobs
+30m                  → run once in 30 minutes
+2h                   → run once in 2 hours
+2026-03-01T09:00     → run once at a specific date/time
+
+# Recurring intervals
+every 30m            → every 30 minutes
+every 2h             → every 2 hours
+every 1d             → every day
+```
+
+```text Cron expressions
+# Standard 5-field cron format: minute hour day month weekday
+0 9 * * *      → 9:00 AM every day
+0 9 * * 1      → 9:00 AM every Monday
+0 8,17 * * 1-5 → 8 AM and 5 PM on weekdays
+30 23 * * 0    → 11:30 PM every Sunday
+0 0 1 * *      → midnight on the 1st of every month
+```
+
+</CodeGroup>
+
+## Platform delivery
+
+Jobs created from a messaging platform (Telegram, Discord, etc.) automatically deliver results back to the same chat. You can also specify delivery explicitly:
+
+```
+Create a cron job that runs every morning at 7am, generates a weather briefing, and sends it to my Telegram
+```
+
+Delivery uses the `send_message` tool and routes to the platform where you created the job, or to any configured platform you specify.
+
+## Creating your first cron job
+
+<Steps>
+  <Step title="Start the scheduler">
+    If it isn't already running, start the cron daemon:
+
+    ```bash
+    hermes cron start
+    ```
+  </Step>
+  <Step title="Create a job">
+    Use the `/cron` slash command or ask the agent naturally. For example, to get a daily news summary:
+
+    ```
+    /cron add "0 8 * * *" "Search for today's top AI news stories and summarize them in 5 bullet points"
+    ```
+
+    Or in natural language:
+    ```
+    Schedule a daily AI news summary at 8am
+    ```
+  </Step>
+  <Step title="Verify the job">
+    Run `/cron list` to confirm the job was created and see its next scheduled run time.
+  </Step>
+  <Step title="Test it now">
+    Trigger the job immediately to verify it works:
+
+    ```
+    /cron run <job-id>
+    ```
+  </Step>
+</Steps>
+
+## Example scheduled jobs
+
+```yaml
+# Daily standup prep at 8:45 AM on weekdays
+schedule: "45 8 * * 1-5"
+prompt: |
+  Review my git log for the last 24 hours and draft a standup update:
+  what I did yesterday, what I'm doing today, any blockers.
+
+# Nightly project backup at 11 PM
+schedule: "0 23 * * *"
+prompt: |
+  Run a backup of ~/projects to ~/backups/$(date +%Y-%m-%d).tar.gz
+  and confirm it completed successfully.
+
+# Weekly dependency audit every Sunday at 6 AM
+schedule: "0 6 * * 0"
+prompt: |
+  Check all package.json files in ~/projects for outdated dependencies
+  and generate a report of what needs updating.
+```
+
+## Job output
+
+Job output is saved to `~/.hermes/cron/output/<job-id>/<timestamp>.md`. You can read past runs by asking the agent:
+
+```
+Show me the output from last night's backup job
+```
+
+<Warning>
+Cron prompts are scanned for injection patterns before execution. Prompts containing suspicious patterns (credential exfiltration, destructive commands targeting root paths) are blocked.
+</Warning>

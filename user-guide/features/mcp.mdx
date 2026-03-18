@@ -1,0 +1,134 @@
+---
+title: "MCP integration"
+description: "Connect any MCP (Model Context Protocol) server for extended capabilities"
+---
+
+MCP (Model Context Protocol) is an open standard for connecting AI agents to external tools and data sources. Hermes supports MCP servers over both `stdio` and HTTP/StreamableHTTP transport. Once configured, MCP tools appear in the agent's tool list and can be called like any built-in tool.
+
+## Why use MCP
+
+MCP servers extend Hermes with capabilities beyond the built-in tool set — anything from filesystem access to database queries to specialized APIs. Because MCP is an open standard, you can connect Hermes to any server that implements it, including community servers, your own internal APIs, or services like GitHub, Slack, and Postgres.
+
+## Configuring MCP servers
+
+MCP servers are configured under `mcp_servers` in `~/.hermes/config.yaml`. Each server entry specifies how to start it (stdio) or connect to it (HTTP).
+
+### Stdio transport
+
+For servers you run locally as a subprocess:
+
+```yaml
+mcp_servers:
+  filesystem:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    env: {}
+    timeout: 120         # per-tool-call timeout in seconds (default: 120)
+    connect_timeout: 60  # initial connection timeout (default: 60)
+
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."
+```
+
+### SSE / HTTP transport
+
+For remote MCP servers accessible over HTTP:
+
+```yaml
+mcp_servers:
+  remote_api:
+    url: "https://my-mcp-server.example.com/mcp"
+    headers:
+      Authorization: "Bearer sk-..."
+    timeout: 180
+```
+
+### Sampling support
+
+Some MCP servers can request LLM completions (server-initiated sampling). Configure this per server:
+
+```yaml
+mcp_servers:
+  analysis:
+    command: "npx"
+    args: ["-y", "analysis-server"]
+    sampling:
+      enabled: true              # default: true
+      model: "gemini-3-flash"    # override model (optional)
+      max_tokens_cap: 4096
+      timeout: 30
+      max_rpm: 10
+      allowed_models: []         # empty = all models allowed
+      max_tool_rounds: 5
+      log_level: "info"
+```
+
+## Adding a new MCP server
+
+<Steps>
+  <Step title="Find or build an MCP server">
+    Browse the MCP ecosystem for existing servers (filesystem, GitHub, Postgres, Slack, and many more), or build your own using the MCP SDK.
+  </Step>
+  <Step title="Add it to config.yaml">
+    Open `~/.hermes/config.yaml` and add an entry under `mcp_servers`. For an npm-based server:
+
+    ```yaml
+    mcp_servers:
+      my-server:
+        command: "npx"
+        args: ["-y", "my-mcp-package"]
+        env:
+          MY_API_KEY: "sk-..."
+    ```
+  </Step>
+  <Step title="Reload MCP">
+    Run `/reload-mcp` in a running chat session to connect to newly added servers without restarting Hermes.
+  </Step>
+  <Step title="Verify tools are available">
+    Ask the agent: *"What MCP tools do you have available?"* or run `/tools` to see the full tool list including MCP tools.
+  </Step>
+</Steps>
+
+## Tool naming
+
+MCP tools appear in the agent's tool list with the naming pattern:
+
+```
+mcp__<servername>__<toolname>
+```
+
+For example, a tool named `read_file` from a server named `filesystem` appears as `mcp__filesystem__read_file`. The agent calls these transparently — you don't need to know the internal names.
+
+## Resources and prompts
+
+Beyond tools, MCP servers can expose:
+
+- **Resources** — structured data the agent can read (files, database rows, API responses)
+- **Prompts** — pre-built prompt templates the server provides
+
+Hermes surfaces both through the MCP integration automatically.
+
+## `/reload-mcp` slash command
+
+Run `/reload-mcp` inside a chat session to reconnect to all configured MCP servers. Use this after:
+- Adding a new server to `config.yaml`
+- Restarting an MCP server process
+- Updating server credentials
+
+## Common MCP servers to try
+
+| Server | Package | What it does |
+|--------|---------|-------------|
+| Filesystem | `@modelcontextprotocol/server-filesystem` | Read/write files in allowed directories |
+| GitHub | `@modelcontextprotocol/server-github` | Repository access, issues, PRs |
+| Postgres | `@modelcontextprotocol/server-postgres` | Query a PostgreSQL database |
+| Brave Search | `@modelcontextprotocol/server-brave-search` | Web search via Brave |
+| Puppeteer | `@modelcontextprotocol/server-puppeteer` | Browser automation |
+| Slack | `@modelcontextprotocol/server-slack` | Slack workspace access |
+
+<Note>
+Stdio MCP servers run as subprocesses with a filtered environment — only `PATH`, `HOME`, `LANG`, and similar safe variables are passed through by default. Credentials must be specified explicitly in the server's `env` block in `config.yaml`.
+</Note>

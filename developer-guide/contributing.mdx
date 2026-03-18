@@ -1,0 +1,192 @@
+---
+title: "Contributing"
+description: "Development setup, PR process, testing, and code style"
+---
+
+Contributions are welcome. This page covers everything you need: setting up a development environment, running tests, code style, and how to get a PR merged.
+
+## Contribution priorities
+
+We value contributions in this order:
+
+1. **Bug fixes** — crashes, incorrect behavior, data loss. Always top priority.
+2. **Cross-platform compatibility** — Windows, macOS, different Linux distros, different terminal emulators.
+3. **Security hardening** — shell injection, prompt injection, path traversal, privilege escalation.
+4. **Performance and robustness** — retry logic, error handling, graceful degradation.
+5. **New skills** — broadly useful ones only.
+6. **New tools** — rarely needed. Most new capabilities should be skills.
+7. **Documentation** — fixes, clarifications, new examples.
+
+## Development setup
+
+<Steps>
+
+<Step title="Clone with submodules">
+
+```bash
+git clone --recurse-submodules https://github.com/NousResearch/hermes-agent.git
+cd hermes-agent
+git submodule update --init mini-swe-agent
+```
+
+`mini-swe-agent` is a required terminal backend. The `--recurse-submodules` flag during clone handles it automatically, but the explicit `submodule update` is useful after pulling new commits.
+
+</Step>
+
+<Step title="Create a virtual environment">
+
+```bash
+uv venv .venv --python 3.11
+source .venv/bin/activate
+```
+
+Python 3.11 is required. `uv` will download it if it's not installed.
+
+<Warning>
+Always activate the virtual environment before running any Python commands. The `source .venv/bin/activate` step is mandatory — running with a system Python will lead to import errors and difficult-to-debug failures.
+</Warning>
+
+</Step>
+
+<Step title="Install dependencies">
+
+```bash
+uv pip install -e ".[all,dev]"
+uv pip install -e "./mini-swe-agent"
+```
+
+The `[all,dev]` extras install messaging platform libraries, CLI menus, cron dependencies, and development tools. `mini-swe-agent` is installed as an editable package so local changes take effect immediately.
+
+</Step>
+
+<Step title="Configure for development">
+
+```bash
+mkdir -p ~/.hermes/{cron,sessions,logs,memories,skills}
+cp cli-config.yaml.example ~/.hermes/config.yaml
+touch ~/.hermes/.env
+
+# Add at minimum an LLM provider key:
+echo 'OPENROUTER_API_KEY=sk-or-v1-your-key' >> ~/.hermes/.env
+```
+
+</Step>
+
+<Step title="Verify the installation">
+
+```bash
+hermes doctor
+hermes chat -q "Hello"
+```
+
+`hermes doctor` checks all configured providers, tools, and dependencies. Fix any warnings before starting development work.
+
+</Step>
+
+</Steps>
+
+## Running tests
+
+```bash
+# Full test suite (~3000 tests, ~3 minutes)
+python -m pytest tests/ -q
+
+# Specific test subsets
+python -m pytest tests/test_model_tools.py -q   # Toolset resolution
+python -m pytest tests/test_cli_init.py -q       # CLI config loading
+python -m pytest tests/gateway/ -q               # Gateway tests
+python -m pytest tests/tools/ -q                 # Tool-level tests
+```
+
+Always run the full suite before pushing changes. The suite is parallelized with `pytest-xdist` and completes in about 3 minutes.
+
+## Code style
+
+- **PEP 8** with practical exceptions (no strict line length enforcement)
+- **Comments** — only when explaining non-obvious intent, trade-offs, or API quirks. Don't narrate what the code does.
+- **Error handling** — catch specific exceptions. Log with `logger.warning()` / `logger.error()`, use `exc_info=True` for unexpected errors
+- **Cross-platform** — never assume Unix. Use `pathlib.Path` for paths, guard `termios`/`fcntl` imports, test process management on macOS and Windows
+
+## PR process
+
+### Branch naming
+
+```
+fix/description        # Bug fixes
+feat/description       # New features
+docs/description       # Documentation
+test/description       # Tests
+refactor/description   # Code restructuring
+```
+
+### Before submitting
+
+1. Run `python -m pytest tests/ -q` and ensure all tests pass
+2. Run `hermes` manually and exercise the code path you changed
+3. Consider cross-platform impact for any changes touching file I/O, process management, or terminal handling
+4. Keep PRs focused — one logical change per PR
+
+### Commit messages
+
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <description>
+```
+
+| Type | Use for |
+|------|---------|
+| `fix` | Bug fixes |
+| `feat` | New features |
+| `docs` | Documentation |
+| `test` | Tests |
+| `refactor` | Code restructuring (no behavior change) |
+| `chore` | Build, CI, dependency updates |
+
+Examples:
+```
+fix(cli): prevent crash in save_config_value when model is a string
+feat(gateway): add WhatsApp multi-user session isolation
+fix(security): prevent shell injection in sudo password piping
+test(tools): add unit tests for file_operations
+```
+
+## Known pitfalls
+
+<Warning>
+**Do not use `simple_term_menu` for interactive menus.** It has rendering bugs in tmux/iTerm2 — ghosting on scroll. Use `curses` (stdlib) instead. See `hermes_cli/tools_config.py` for the established pattern.
+</Warning>
+
+<Warning>
+**Do not use `\033[K` (ANSI erase-to-EOL) in spinner or display code.** It leaks as literal `?[K` text under `prompt_toolkit`'s `patch_stdout`. Use space-padding instead: `f"\r{line}{' ' * pad}"`.
+</Warning>
+
+<Warning>
+**Do not break prompt caching.** Never implement changes that alter past context, change toolsets, or rebuild the system prompt mid-conversation. Cache-breaking forces dramatically higher costs. The only legitimate exception is context compression.
+</Warning>
+
+<Warning>
+**Tests must not write to `~/.hermes/`.** The `_isolate_hermes_home` autouse fixture in `tests/conftest.py` redirects `HERMES_HOME` to a temp directory for every test. Never hardcode `~/.hermes/` paths in test code — they will escape isolation and corrupt the real config.
+</Warning>
+
+### `_last_resolved_tool_names` is a process-global
+
+`_last_resolved_tool_names` in `model_tools.py` is a process-global list. `_run_single_child()` in `delegate_tool.py` saves and restores this global around subagent execution. If you add code that reads this global, be aware it may be temporarily stale during child agent runs.
+
+## Security considerations
+
+Hermes has terminal access. When contributing security-sensitive code:
+
+- **Always use `shlex.quote()`** when interpolating user input into shell commands
+- **Resolve symlinks** with `os.path.realpath()` before path-based access control checks
+- **Don't log secrets** — API keys, tokens, and passwords must never appear in log output
+- **Catch broad exceptions** around tool execution so a single failure doesn't crash the agent loop
+- **Test on all platforms** if your change touches file paths, process management, or shell commands
+
+If your PR affects security, note it explicitly in the PR description.
+
+## Community
+
+- **Discord**: [discord.gg/NousResearch](https://discord.gg/NousResearch) — questions, skill sharing, and project showcases
+- **GitHub Issues**: [github.com/NousResearch/hermes-agent/issues](https://github.com/NousResearch/hermes-agent/issues)
+- **GitHub Discussions**: Design proposals and architecture discussions

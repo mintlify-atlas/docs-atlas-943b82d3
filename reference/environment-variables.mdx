@@ -1,0 +1,267 @@
+---
+title: "Environment variables"
+description: "All environment variables used by Hermes Agent, organized by category."
+---
+
+Hermes reads environment variables from `~/.hermes/.env` (loaded on startup) and from the shell environment. The `.env` file takes precedence over stale shell exports.
+
+Use `hermes setup` to configure variables interactively, or set them directly:
+
+```bash
+# View current .env path
+hermes config env-path
+
+# Set a value
+hermes config set <KEY> <value>    # for config.yaml values
+```
+
+To edit the `.env` file directly:
+
+```bash
+hermes config edit  # opens config.yaml
+# .env is at ~/.hermes/.env
+```
+
+<Note>
+`HERMES_HOME` overrides the base directory for all config files. Default is `~/.hermes`. Set this before running any `hermes` command.
+
+```bash
+export HERMES_HOME=/opt/hermes-config
+```
+</Note>
+
+---
+
+## Provider API keys
+
+At least one provider must be configured for Hermes to start. Run `hermes setup` to choose a provider interactively.
+
+<ParamField path="OPENROUTER_API_KEY" type="string">
+  API key for [OpenRouter](https://openrouter.ai/keys). Provides access to 100+ models including Claude, GPT, Gemini, and open-source models. Also required for the `vision_analyze` and `mixture_of_agents` tools when using auxiliary providers.
+</ParamField>
+
+<ParamField path="ANTHROPIC_API_KEY" type="string">
+  API key for direct Anthropic API access (Claude models). Alternative to using Anthropic via OpenRouter.
+</ParamField>
+
+<ParamField path="OPENAI_API_KEY" type="string">
+  OpenAI API key. Used when `OPENAI_BASE_URL` is set (custom endpoint) or for direct OpenAI access.
+</ParamField>
+
+<ParamField path="OPENAI_BASE_URL" type="string">
+  Base URL for any OpenAI-compatible endpoint (custom deployments, local models, proxies). When set alongside `OPENAI_API_KEY`, Hermes routes all requests to this endpoint.
+</ParamField>
+
+<ParamField path="GLM_API_KEY" type="string">
+  API key for [Z.AI / ZhipuAI GLM](https://z.ai/) models (GLM-5, GLM-4.7, etc.). Also recognized as `ZAI_API_KEY` or `Z_AI_API_KEY`.
+</ParamField>
+
+<ParamField path="GLM_BASE_URL" type="string">
+  Base URL override for the Z.AI / GLM API. Leave empty to use the default endpoint.
+</ParamField>
+
+<ParamField path="KIMI_API_KEY" type="string">
+  API key for [Kimi / Moonshot AI](https://platform.moonshot.cn/) models. Keys prefixed with `sk-kimi-` use the Kimi Code API by default.
+</ParamField>
+
+<ParamField path="KIMI_BASE_URL" type="string">
+  Base URL override for Kimi. Use `https://api.kimi.com/coding/v1` for Kimi Code keys, `https://api.moonshot.ai/v1` for legacy Moonshot keys.
+</ParamField>
+
+<ParamField path="MINIMAX_API_KEY" type="string">
+  API key for [MiniMax](https://www.minimax.io/) (international endpoint).
+</ParamField>
+
+<ParamField path="MINIMAX_CN_API_KEY" type="string">
+  API key for [MiniMax China](https://www.minimaxi.com/) (domestic endpoint).
+</ParamField>
+
+<ParamField path="DEEPSEEK_API_KEY" type="string">
+  API key for direct [DeepSeek](https://platform.deepseek.com/api_keys) access.
+</ParamField>
+
+<ParamField path="DASHSCOPE_API_KEY" type="string">
+  API key for [Alibaba Cloud DashScope](https://modelstudio.console.alibabacloud.com/) (Qwen models).
+</ParamField>
+
+<ParamField path="OPENCODE_ZEN_API_KEY" type="string">
+  API key for [OpenCode Zen](https://opencode.ai/auth) — pay-as-you-go access to curated models.
+</ParamField>
+
+<ParamField path="OPENCODE_GO_API_KEY" type="string">
+  API key for [OpenCode Go](https://opencode.ai/auth) — $10/month subscription for open models (GLM-5, Kimi K2.5, MiniMax M2.5).
+</ParamField>
+
+<ParamField path="HERMES_INFERENCE_PROVIDER" type="string">
+  Override the inference provider at runtime without changing `config.yaml`. Accepted values: `auto`, `openrouter`, `nous`, `openai-codex`, `copilot`, `anthropic`, `zai`, `kimi-coding`, `minimax`, `minimax-cn`, `kilocode`, `custom`.
+</ParamField>
+
+---
+
+## Tool API keys
+
+<ParamField path="PARALLEL_API_KEY" type="string">
+  API key for [Parallel](https://parallel.ai/) — AI-native web search and content extraction. Powers the `web_search` and `web_extract` tools.
+</ParamField>
+
+<ParamField path="FIRECRAWL_API_KEY" type="string">
+  API key for [Firecrawl](https://firecrawl.dev/) — web search and scraping. Powers `web_search` and `web_extract`.
+</ParamField>
+
+<ParamField path="FIRECRAWL_API_URL" type="string">
+  URL for a self-hosted Firecrawl instance. Leave empty to use the Firecrawl cloud service.
+</ParamField>
+
+<ParamField path="TAVILY_API_KEY" type="string">
+  API key for [Tavily](https://app.tavily.com/home) — AI-native web search, extract, and crawl. Powers `web_search`, `web_extract`, and `web_crawl` tools.
+</ParamField>
+
+<ParamField path="BROWSERBASE_API_KEY" type="string">
+  API key for [Browserbase](https://browserbase.com/) cloud browser. Required for remote browser execution. Local browser automation works without this key.
+</ParamField>
+
+<ParamField path="BROWSERBASE_PROJECT_ID" type="string">
+  Browserbase project ID from your dashboard. Required alongside `BROWSERBASE_API_KEY` for cloud browser sessions.
+</ParamField>
+
+<ParamField path="BROWSER_USE_API_KEY" type="string">
+  API key for [Browser Use](https://browser-use.com/) cloud browser (alternative to Browserbase).
+</ParamField>
+
+<ParamField path="FAL_KEY" type="string">
+  API key for [FAL.ai](https://fal.ai/) — image generation. Required by the `image_generate` tool.
+</ParamField>
+
+<ParamField path="VOICE_TOOLS_OPENAI_KEY" type="string">
+  OpenAI API key used exclusively for voice transcription (Whisper) and OpenAI TTS. Named separately to avoid interfering with the main inference provider. Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+</ParamField>
+
+<ParamField path="ELEVENLABS_API_KEY" type="string">
+  API key for [ElevenLabs](https://elevenlabs.io/) premium text-to-speech voices.
+</ParamField>
+
+<ParamField path="HONCHO_API_KEY" type="string">
+  API key for [Honcho](https://app.honcho.dev) AI-native cross-session user memory. Required by the `honcho_context`, `honcho_profile`, `honcho_search`, and `honcho_conclude` tools. Also requires `~/.honcho/config.json`.
+</ParamField>
+
+<ParamField path="GITHUB_TOKEN" type="string">
+  GitHub personal access token for the Skills Hub (higher API rate limits) and skill publishing. Get one at [github.com/settings/tokens](https://github.com/settings/tokens).
+</ParamField>
+
+<ParamField path="TINKER_API_KEY" type="string">
+  API key for [Tinker](https://tinker-console.thinkingmachines.ai/keys) — RL training service. Required by `rl_start_training` and related tools.
+</ParamField>
+
+<ParamField path="WANDB_API_KEY" type="string">
+  [Weights & Biases](https://wandb.ai/authorize) API key for experiment tracking. Used by `rl_get_results` and `rl_check_status`.
+</ParamField>
+
+---
+
+## Messaging platforms
+
+<ParamField path="TELEGRAM_BOT_TOKEN" type="string">
+  Telegram bot token obtained from [@BotFather](https://t.me/BotFather). Required to enable the Telegram gateway.
+</ParamField>
+
+<ParamField path="TELEGRAM_ALLOWED_USERS" type="string">
+  Comma-separated Telegram user IDs allowed to interact with the bot. Get your ID from [@userinfobot](https://t.me/userinfobot). Leave empty (with `GATEWAY_ALLOW_ALL_USERS=true`) for open access.
+</ParamField>
+
+<ParamField path="DISCORD_BOT_TOKEN" type="string">
+  Discord bot token from the [Developer Portal](https://discord.com/developers/applications). Required to enable the Discord gateway.
+</ParamField>
+
+<ParamField path="DISCORD_ALLOWED_USERS" type="string">
+  Comma-separated Discord user IDs allowed to use the bot.
+</ParamField>
+
+<ParamField path="SLACK_BOT_TOKEN" type="string">
+  Slack bot token (`xoxb-...`) from your app's OAuth & Permissions settings. Required scopes: `chat:write`, `app_mentions:read`, `channels:history`, `groups:history`, `im:history`, `im:read`, `im:write`, `users:read`, `files:write`.
+</ParamField>
+
+<ParamField path="SLACK_APP_TOKEN" type="string">
+  Slack app-level token (`xapp-...`) for Socket Mode. Create in Basic Information → App-Level Tokens. Also requires Event Subscriptions: `message.im`, `message.channels`, `message.groups`, `app_mention`.
+</ParamField>
+
+<ParamField path="MATTERMOST_URL" type="string">
+  Mattermost server URL, e.g. `https://mm.example.com`.
+</ParamField>
+
+<ParamField path="MATTERMOST_TOKEN" type="string">
+  Mattermost bot token or personal access token.
+</ParamField>
+
+<ParamField path="MATTERMOST_ALLOWED_USERS" type="string">
+  Comma-separated Mattermost user IDs allowed to use the bot.
+</ParamField>
+
+<ParamField path="MATRIX_HOMESERVER" type="string">
+  Matrix homeserver URL, e.g. `https://matrix.example.org`.
+</ParamField>
+
+<ParamField path="MATRIX_ACCESS_TOKEN" type="string">
+  Matrix access token (preferred over password login).
+</ParamField>
+
+<ParamField path="MATRIX_USER_ID" type="string">
+  Matrix user ID in `@user:server` format.
+</ParamField>
+
+<ParamField path="MATRIX_ALLOWED_USERS" type="string">
+  Comma-separated Matrix user IDs in `@user:server` format.
+</ParamField>
+
+<ParamField path="WHATSAPP_ENABLED" type="string">
+  Set to `true` to enable the WhatsApp gateway. Use `hermes whatsapp` to pair via QR code.
+</ParamField>
+
+<ParamField path="WHATSAPP_ALLOWED_USERS" type="string">
+  Comma-separated phone numbers (e.g. `15551234567`) allowed to message the bot. Use `*` for anyone.
+</ParamField>
+
+<ParamField path="GATEWAY_ALLOW_ALL_USERS" type="string" default="false">
+  Set to `true` to allow all users to interact with messaging bots without an allowlist. Use only for private deployments.
+</ParamField>
+
+<ParamField path="API_SERVER_ENABLED" type="string" default="false">
+  Set to `true` to enable the OpenAI-compatible API server. Allows frontends like Open WebUI and LobeChat to connect.
+</ParamField>
+
+<ParamField path="API_SERVER_KEY" type="string">
+  Bearer token for API server authentication. If empty, all requests are allowed (suitable for local use only).
+</ParamField>
+
+<ParamField path="API_SERVER_PORT" type="string" default="8642">
+  Port for the API server.
+</ParamField>
+
+<ParamField path="API_SERVER_HOST" type="string" default="127.0.0.1">
+  Host/bind address for the API server. Use `0.0.0.0` for network access — set `API_SERVER_KEY` for security.
+</ParamField>
+
+---
+
+## Settings
+
+<ParamField path="MESSAGING_CWD" type="string">
+  Working directory for terminal commands executed via messaging platforms. Defaults to the home directory. The CLI always uses the directory where `hermes` was launched.
+</ParamField>
+
+<ParamField path="SUDO_PASSWORD" type="string">
+  Sudo password for terminal commands requiring root access. Piped via `sudo -S`. Works with all terminal backends.
+
+  <Warning>Stored in plaintext. Use only on trusted machines. Consider passwordless sudo or running containers as root instead.</Warning>
+</ParamField>
+
+<ParamField path="HERMES_MAX_ITERATIONS" type="string" default="90">
+  Maximum tool-calling iterations per conversation. Overrides `agent.max_turns` in `config.yaml`.
+</ParamField>
+
+<ParamField path="HERMES_PREFILL_MESSAGES_FILE" type="string">
+  Path to a JSON file containing ephemeral prefill messages for few-shot priming. The messages are injected at the start of every API call but never saved to sessions or logs.
+</ParamField>
+
+<ParamField path="HERMES_EPHEMERAL_SYSTEM_PROMPT" type="string">
+  An ephemeral system prompt injected at API-call time. Never persisted to sessions.
+</ParamField>

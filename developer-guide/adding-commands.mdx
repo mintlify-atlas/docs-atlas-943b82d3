@@ -1,0 +1,156 @@
+---
+title: "Adding slash commands"
+description: "How to add new slash commands to the CLI and gateway"
+---
+
+All slash commands — `/new`, `/model`, `/help`, and everything else — are defined once in a central registry and automatically propagate to every consumer: CLI help output, gateway dispatch, Telegram bot command menu, Slack subcommand routing, and tab autocomplete.
+
+## The CommandDef dataclass
+
+Every slash command is represented by a `CommandDef` instance in `hermes_cli/commands.py`:
+
+```python
+@dataclass(frozen=True)
+class CommandDef:
+    name: str                          # canonical name without slash: "background"
+    description: str                   # human-readable description
+    category: str                      # "Session", "Configuration", etc.
+    aliases: tuple[str, ...] = ()      # alternative names: ("bg",)
+    args_hint: str = ""                # argument placeholder: "<prompt>", "[name]"
+    subcommands: tuple[str, ...] = ()  # tab-completable subcommands
+    cli_only: bool = False             # only available in CLI
+    gateway_only: bool = False         # only available in gateway/messaging
+```
+
+### Fields
+
+| Field | Description |
+|-------|-------------|
+| `name` | Canonical command name without the leading slash. E.g. `"background"`. |
+| `description` | Human-readable description shown in `/help` and Telegram menus. |
+| `category` | One of: `"Session"`, `"Configuration"`, `"Tools & Skills"`, `"Info"`, `"Exit"`. |
+| `aliases` | Tuple of alternative names. E.g. `("bg",)`. |
+| `args_hint` | Argument placeholder shown in help. E.g. `"<prompt>"`, `"[name]"`. |
+| `subcommands` | Tab-completable subcommand list. E.g. `("list", "add", "remove")`. |
+| `cli_only` | `True` if the command is only available in the interactive CLI, not the gateway. |
+| `gateway_only` | `True` if the command is only available in messaging platforms, not the CLI. |
+
+## Adding a slash command
+
+<Steps>
+
+<Step title="Add CommandDef to COMMAND_REGISTRY">
+
+Open `hermes_cli/commands.py` and add a `CommandDef` entry to the `COMMAND_REGISTRY` list. Place it in the appropriate category section.
+
+```python
+COMMAND_REGISTRY: list[CommandDef] = [
+    # ... existing commands ...
+
+    # Session
+    CommandDef("mycommand", "Description of what it does", "Session",
+               aliases=("mc",), args_hint="[arg]"),
+]
+```
+
+Every downstream consumer — CLI help, gateway help, Telegram menu, Slack routing, autocomplete — derives from this registry at import time. No other registry-related changes are needed.
+
+</Step>
+
+<Step title="Add handler in HermesCLI.process_command()">
+
+Open `cli.py` and add a branch in `HermesCLI.process_command()`. Commands are dispatched on the canonical name returned by `resolve_command()`:
+
+```python
+def process_command(self, cmd_original: str) -> bool:
+    canonical = resolve_command(cmd_original).name if resolve_command(cmd_original) else None
+
+    # ... existing branches ...
+
+    elif canonical == "mycommand":
+        self._handle_mycommand(cmd_original)
+        return True
+```
+
+For persistent settings, use `save_config_value()` in `cli.py` rather than writing to the config file directly.
+
+</Step>
+
+<Step title="Add gateway handler in gateway/run.py (if applicable)">
+
+If the command should be available in messaging platforms (i.e. `gateway_only=True` or neither flag is set), add a handler in `gateway/run.py`:
+
+```python
+async def _handle_command(self, event, canonical: str, args: str):
+    # ... existing branches ...
+
+    if canonical == "mycommand":
+        return await self._handle_mycommand(event)
+```
+
+Skip this step if you set `cli_only=True` on the `CommandDef`.
+
+</Step>
+
+<Step title="For persistent settings, use save_config_value()">
+
+If the command changes a configuration value that should persist across sessions, use the `save_config_value()` helper in `cli.py` rather than directly writing to the config file:
+
+```python
+def _handle_mycommand(self, cmd_original: str) -> None:
+    # Parse args from cmd_original ...
+    value = cmd_original.split(maxsplit=1)[1] if " " in cmd_original else ""
+    if value:
+        save_config_value("my_section.my_key", value)
+        print(f"Set my_key to: {value}")
+```
+
+</Step>
+
+</Steps>
+
+## How aliases work
+
+Aliases are fully automatic. Adding an alias to the `aliases` tuple on a `CommandDef` is the only change required. All consumers update automatically:
+
+- **CLI dispatch** — `resolve_command()` maps both canonical name and aliases to the same `CommandDef`
+- **CLI help** — aliases shown alongside the canonical command
+- **Gateway dispatch** — `GATEWAY_KNOWN_COMMANDS` frozenset includes all aliases
+- **Telegram bot menu** — canonical name only (aliases excluded from the visible menu)
+- **Slack routing** — `slack_subcommand_map()` maps every alias to the command handler
+- **Tab autocomplete** — `COMMANDS` flat dict includes alias → description entries
+
+Example — the `/background` command has the `bg` alias:
+
+```python
+CommandDef("background", "Run a prompt in the background", "Session",
+           aliases=("bg",), args_hint="<prompt>"),
+```
+
+Both `/background my task` and `/bg my task` resolve to the same handler with zero extra code.
+
+## Command categories
+
+Commands are grouped by category in `/help` output. Use the appropriate category:
+
+| Category | Purpose |
+|----------|---------|
+| `"Session"` | Managing conversation state: new, reset, history, retry, undo |
+| `"Configuration"` | Model, provider, prompt, settings |
+| `"Tools & Skills"` | Tool management, skill browsing, cron, browser, plugins |
+| `"Info"` | Help, usage stats, platform status, diagnostics |
+| `"Exit"` | Quit commands |
+
+## Derived consumers
+
+All downstream consumers are built from `COMMAND_REGISTRY` at import time:
+
+| Consumer | Derived from | Purpose |
+|----------|-------------|--------|
+| `COMMANDS` | All non-gateway-only commands | Flat dict for autocomplete |
+| `COMMANDS_BY_CATEGORY` | All non-gateway-only commands | Categorized dict for `/help` |
+| `SUBCOMMANDS` | Commands with `subcommands=` | Tab-completable subcommand lists |
+| `GATEWAY_KNOWN_COMMANDS` | All non-cli-only commands | Frozenset for gateway hook emission |
+| `gateway_help_lines()` | All non-cli-only commands | `/help` output for messaging platforms |
+| `telegram_bot_commands()` | All non-cli-only commands | Telegram `setMyCommands` menu |
+| `slack_subcommand_map()` | All non-cli-only commands | `/hermes` subcommand routing |

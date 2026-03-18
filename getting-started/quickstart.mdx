@@ -1,0 +1,87 @@
+---
+title: "Quickstart"
+description: "Get Hermes installed and running in under 2 minutes"
+---
+
+<Note>
+  **Windows users:** Native Windows is not supported. Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) first, then follow these steps inside your WSL2 terminal.
+</Note>
+
+<Steps>
+  <Step title="Install Hermes">
+    Run the one-line installer. It handles Python, Node.js, all dependencies, and the `hermes` command — no prerequisites except `git`.
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+    ```
+
+    The installer clones the repo to `~/.hermes/hermes-agent`, creates a virtual environment, installs all packages, and symlinks the `hermes` binary into `~/.local/bin`.
+  </Step>
+
+  <Step title="Reload your shell">
+    Apply the PATH changes the installer added to your shell config:
+
+    <CodeGroup>
+      ```bash bash
+      source ~/.bashrc
+      ```
+
+      ```zsh zsh
+      source ~/.zshrc
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Run the setup wizard">
+    Configure your LLM provider and API key with the interactive wizard:
+
+    ```bash
+    hermes setup
+    ```
+
+    The wizard walks you through:
+    1. Choosing an inference provider (Nous Portal, OpenRouter, Anthropic, and more)
+    2. Entering your API key or logging in via OAuth
+    3. Selecting a default model
+    4. Optionally configuring the terminal backend, messaging platforms, and tools
+
+    You can re-run any section later with `hermes setup model`, `hermes setup tools`, etc.
+  </Step>
+
+  <Step title="Pick a model">
+    To change your model at any time without re-running the full wizard:
+
+    ```bash
+    hermes model
+    ```
+
+    This opens an interactive provider and model picker. Your selection is saved to `~/.hermes/config.yaml`.
+  </Step>
+
+  <Step title="Start chatting">
+    Launch the interactive terminal UI:
+
+    ```bash
+    hermes
+    ```
+
+    On first launch you'll see the Hermes banner, your configured provider and model, and a prompt ready for your first message:
+
+    ```
+    ┌─────────────────────────────────────────────────────────┐
+    │  ⚕ Hermes Agent                                        │
+    │  Model: anthropic/claude-opus-4.6  Provider: openrouter │
+    └─────────────────────────────────────────────────────────┘
+
+    > _
+    ```
+
+    Type your first message and press **Enter**. Hermes streams tool output and thinking in real time as it works.
+  </Step>
+</Steps>
+
+## What's next
+
+See [Installation](/getting-started/installation) for advanced install options including manual setup, updating, and uninstalling.
+
+See [Your first conversation](/getting-started/first-conversation) for a walkthrough of slash commands, tool output, and provider configuration.

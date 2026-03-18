@@ -1,0 +1,88 @@
+---
+title: "Hermes Agent"
+description: "The self-improving AI agent built by Nous Research. It creates skills from experience, improves them during use, and runs anywhere."
+---
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    Install Hermes and start your first conversation in under 2 minutes
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/user-guide/cli">
+    Learn the interactive terminal interface, slash commands, and keybindings
+  </Card>
+  <Card title="Messaging Gateway" icon="message" href="/user-guide/messaging">
+    Connect Hermes to Telegram, Discord, Slack, WhatsApp, Signal, and more
+  </Card>
+  <Card title="Skills System" icon="brain" href="/user-guide/features/skills">
+    Procedural memory that grows with every complex task you complete
+  </Card>
+</CardGroup>
+
+## What is Hermes Agent?
+
+Hermes is a self-improving AI agent built by [Nous Research](https://nousresearch.com). Unlike conventional agents that reset after every session, Hermes builds up a persistent model of you and your work — creating skills from experience, improving them during use, and searching its own past conversations to recall relevant context.
+
+You can run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
+
+## Key capabilities
+
+<CardGroup cols={2}>
+  <Card title="Closed learning loop" icon="arrows-rotate">
+    Autonomous skill creation after complex tasks. Skills self-improve during use. FTS5 session search with LLM summarization for cross-session recall.
+  </Card>
+  <Card title="Any model, no lock-in" icon="sliders">
+    Use Nous Portal, OpenRouter (200+ models), OpenAI, Anthropic, or your own endpoint. Switch with `hermes model` — no code changes.
+  </Card>
+  <Card title="Lives where you do" icon="mobile">
+    Telegram, Discord, Slack, WhatsApp, Signal, and CLI — all from a single gateway process. Voice memo transcription included.
+  </Card>
+  <Card title="Runs anywhere" icon="server">
+    Six terminal backends: local, Docker, SSH, Daytona, Singularity, and Modal. Serverless persistence means your environment hibernates when idle.
+  </Card>
+  <Card title="40+ built-in tools" icon="wrench">
+    Terminal, file ops, web search, browser automation, code execution, image generation, TTS, and more — all configurable per platform.
+  </Card>
+  <Card title="MCP integration" icon="plug">
+    Connect any MCP server to extend Hermes with external tools, APIs, and data sources.
+  </Card>
+</CardGroup>
+
+## Quick install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+```
+
+Works on Linux, macOS, and WSL2. The installer handles Python, Node.js, dependencies, and the `hermes` command. No prerequisites except git.
+
+After installation:
+
+```bash
+source ~/.bashrc   # reload shell (or: source ~/.zshrc)
+hermes             # start chatting!
+```
+
+<Note>
+Windows native is not supported. Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) first, then run the command above.
+</Note>
+
+## Common entry points
+
+| What you want to do | Command |
+|---|---|
+| Start a conversation | `hermes` |
+| Choose your LLM | `hermes model` |
+| Enable/disable tools | `hermes tools` |
+| Set up messaging platforms | `hermes gateway setup` |
+| Run the setup wizard | `hermes setup` |
+| Diagnose issues | `hermes doctor` |
+| Update to latest version | `hermes update` |
+
+## Built by Nous Research
+
+Hermes Agent is open source under the MIT license and built by [Nous Research](https://nousresearch.com), the team behind the Hermes model family and cutting-edge AI research.
+
+- [Discord community](https://discord.gg/NousResearch)
+- [Skills Hub](https://agentskills.io) — community-contributed skills
+- [GitHub Issues](https://github.com/NousResearch/hermes-agent/issues)
+- [GitHub Discussions](https://github.com/NousResearch/hermes-agent/discussions)

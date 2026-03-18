@@ -1,0 +1,607 @@
+---
+title: "CLI commands"
+description: "Complete reference for all hermes subcommands and their flags."
+---
+
+All commands follow the pattern `hermes <subcommand> [flags]`. Running `hermes` with no arguments starts an interactive chat session.
+
+---
+
+## Core
+
+### `hermes` / `hermes chat`
+
+Start an interactive chat session with the agent. Running `hermes` with no subcommand is equivalent to `hermes chat`.
+
+```bash
+hermes
+hermes chat [flags]
+```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--query TEXT` | `-q` | Single non-interactive query (exits after response) |
+| `--model MODEL` | `-m` | Model to use, e.g. `anthropic/claude-opus-4.6` |
+| `--toolsets LIST` | `-t` | Comma-separated toolsets to enable for this session |
+| `--skills NAME` | `-s` | Preload one or more skills (repeat flag or comma-separate) |
+| `--provider PROVIDER` | | Inference provider: `auto`, `openrouter`, `nous`, `openai-codex`, `copilot-acp`, `copilot`, `anthropic`, `zai`, `kimi-coding`, `minimax`, `minimax-cn`, `kilocode` |
+| `--resume SESSION` | `-r` | Resume a previous session by ID or title |
+| `--continue [NAME]` | `-c` | Resume a session by name, or the most recent if no name given |
+| `--worktree` | `-w` | Run in an isolated git worktree (for parallel agents on the same repo) |
+| `--checkpoints` | | Enable filesystem checkpoints before destructive file operations |
+| `--yolo` | | Bypass all dangerous command approval prompts |
+| `--verbose` | `-v` | Verbose output |
+| `--quiet` | `-Q` | Suppress banner, spinner, and tool previews — output final response only |
+| `--pass-session-id` | | Include the session ID in the agent's system prompt |
+
+<CodeGroup>
+
+```bash Interactive chat
+hermes
+```
+
+```bash Single query
+hermes -q "Summarize the last commit in this repo"
+```
+
+```bash Resume session by name
+hermes -c "my project"
+```
+
+```bash Resume most recent session
+hermes -c
+```
+
+```bash Specific model and toolsets
+hermes -m anthropic/claude-sonnet-4.6 -t web,terminal
+```
+
+```bash Quiet non-interactive use
+hermes -Q -q "What is 2+2?"
+```
+
+</CodeGroup>
+
+<Note>
+The top-level flags `--resume`, `--continue`, `--worktree`, `--skills`, `--yolo`, and `--pass-session-id` are also accepted directly at the root level (e.g. `hermes -c` is equivalent to `hermes chat -c`).
+</Note>
+
+---
+
+### `hermes setup`
+
+Run the interactive setup wizard to configure your provider, model, terminal backend, and optional integrations.
+
+```bash
+hermes setup [section] [flags]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `section` | Optional: run only one section — `model`, `terminal`, `gateway`, `tools`, or `agent` |
+
+| Flag | Description |
+|------|-------------|
+| `--non-interactive` | Use defaults and environment variables without prompting |
+| `--reset` | Reset configuration to factory defaults |
+
+```bash
+hermes setup
+hermes setup model
+hermes setup terminal
+```
+
+---
+
+### `hermes model`
+
+Interactively select your inference provider and default model. Presents a menu of available providers and models.
+
+```bash
+hermes model
+```
+
+No flags. The command prompts you to choose a provider (OpenRouter, Nous Portal, GitHub Copilot, Anthropic, custom endpoint, etc.) and then a model within that provider.
+
+---
+
+### `hermes tools`
+
+Configure which tools are enabled per platform. Run without a subcommand for the interactive configuration UI.
+
+```bash
+hermes tools [flags]
+hermes tools list [--platform PLATFORM]
+hermes tools enable NAME... [--platform PLATFORM]
+hermes tools disable NAME... [--platform PLATFORM]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--summary` | Print a one-line summary of enabled tools per platform and exit |
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | Show all tools and their enabled/disabled status. `--platform` defaults to `cli` |
+| `enable NAME...` | Enable toolsets or MCP tools (`github:create_issue`). `--platform` defaults to `cli` |
+| `disable NAME...` | Disable toolsets or MCP tools. `--platform` defaults to `cli` |
+
+```bash
+hermes tools
+hermes tools list --platform telegram
+hermes tools disable browser --platform cli
+hermes tools enable web terminal
+```
+
+---
+
+## Gateway
+
+### `hermes gateway`
+
+Manage the messaging gateway that connects Hermes to Telegram, Discord, WhatsApp, Slack, and other platforms.
+
+```bash
+hermes gateway [subcommand] [flags]
+```
+
+Running `hermes gateway` with no subcommand starts the gateway in the foreground (same as `hermes gateway run`).
+
+| Subcommand | Description |
+|------------|-------------|
+| `run` | Run gateway in the foreground (Ctrl-C to stop) |
+| `start` | Start gateway as a background service |
+| `stop` | Stop the running gateway service |
+| `restart` | Restart the gateway service |
+| `status` | Show current gateway status |
+| `install` | Install gateway as a system/user service (launchd on macOS, systemd on Linux) |
+| `uninstall` | Uninstall the installed service |
+| `setup` | Interactive wizard to configure messaging platforms |
+
+**Common flags for `start`, `stop`, `restart`, `status`, `install`, `uninstall`:**
+
+| Flag | Description |
+|------|-------------|
+| `--system` | Target the Linux system-level (root) service instead of the user service |
+
+**`run` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-v`, `--verbose` | Verbose logging |
+| `--replace` | Replace any existing gateway instance (useful for systemd) |
+
+**`install` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--force` | Force reinstall even if service already exists |
+| `--run-as-user USER` | User account the Linux system service should run as |
+
+**`status` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--deep` | Run deep connectivity checks |
+
+<CodeGroup>
+
+```bash Run in foreground
+hermes gateway
+```
+
+```bash Install as service
+hermes gateway install
+```
+
+```bash Check service status
+hermes gateway status
+```
+
+```bash Configure platforms
+hermes gateway setup
+```
+
+</CodeGroup>
+
+---
+
+## Config
+
+### `hermes config`
+
+View and manage the Hermes configuration file (`~/.hermes/config.yaml`) and `.env` file.
+
+```bash
+hermes config [subcommand]
+```
+
+Running `hermes config` with no subcommand shows the current configuration.
+
+| Subcommand | Description |
+|------------|-------------|
+| `show` | Show current configuration (default) |
+| `edit` | Open `~/.hermes/config.yaml` in `$EDITOR` |
+| `set KEY VALUE` | Set a configuration value by dotted key path |
+| `path` | Print the path to `config.yaml` |
+| `env-path` | Print the path to the `.env` file |
+| `check` | Check for missing or outdated config fields |
+| `migrate` | Update config to the latest version, adding new fields |
+
+<CodeGroup>
+
+```bash Show config
+hermes config
+```
+
+```bash Edit in $EDITOR
+hermes config edit
+```
+
+```bash Set a value
+hermes config set model anthropic/claude-opus-4.6
+hermes config set terminal.backend docker
+hermes config set display.skin ares
+```
+
+```bash Run migration
+hermes config migrate
+```
+
+</CodeGroup>
+
+---
+
+## Authentication
+
+### `hermes login`
+
+Run an OAuth device authorization flow to authenticate with Nous Portal or OpenAI Codex.
+
+```bash
+hermes login [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--provider PROVIDER` | Provider to authenticate with: `nous` or `openai-codex` (default: `nous`) |
+| `--portal-url URL` | Portal base URL override (default: production) |
+| `--inference-url URL` | Inference API base URL override |
+| `--no-browser` | Print the device code URL instead of opening the browser |
+| `--timeout SECONDS` | HTTP request timeout (default: 15) |
+| `--ca-bundle FILE` | Path to CA bundle PEM file for TLS verification |
+| `--insecure` | Disable TLS verification (testing only) |
+
+---
+
+### `hermes logout`
+
+Clear stored credentials for an OAuth provider.
+
+```bash
+hermes logout [--provider PROVIDER]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--provider PROVIDER` | Provider to log out from: `nous` or `openai-codex` (default: active provider) |
+
+---
+
+## Maintenance
+
+### `hermes status`
+
+Display the health and status of all Hermes components.
+
+```bash
+hermes status [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--all` | Show all details (values are redacted for sharing) |
+| `--deep` | Run deep connectivity checks (may take longer) |
+
+---
+
+### `hermes doctor`
+
+Diagnose configuration and dependency issues.
+
+```bash
+hermes doctor [--fix]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--fix` | Attempt to fix detected issues automatically |
+
+---
+
+### `hermes update`
+
+Pull the latest changes from git and reinstall dependencies.
+
+```bash
+hermes update
+```
+
+---
+
+### `hermes uninstall`
+
+Remove Hermes Agent from your system.
+
+```bash
+hermes uninstall [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--full` | Full uninstall — also removes `~/.hermes/` configs and data |
+| `--yes`, `-y` | Skip confirmation prompts |
+
+<Warning>
+`--full` permanently deletes your configuration, API keys, memories, and session history stored in `~/.hermes/`.
+</Warning>
+
+---
+
+### `hermes version`
+
+Print version and release date.
+
+```bash
+hermes version
+```
+
+---
+
+## Sessions
+
+### `hermes sessions`
+
+View and manage conversation history stored in the SQLite session store.
+
+```bash
+hermes sessions <subcommand> [flags]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List recent sessions |
+| `browse` | Interactive curses-based session picker — browse, search, and resume |
+| `rename ID TITLE` | Set or change a session's title |
+| `export OUTPUT` | Export sessions to a JSONL file |
+| `delete SESSION_ID` | Delete a specific session |
+| `prune` | Delete old sessions |
+| `stats` | Show session store statistics |
+
+**`list` flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--source PLATFORM` | | Filter by source: `cli`, `telegram`, `discord`, etc. |
+| `--limit N` | 20 | Maximum number of sessions to show |
+
+**`browse` flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--source PLATFORM` | | Filter by source |
+| `--limit N` | 50 | Max sessions to load into the picker |
+
+**`export` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--source PLATFORM` | Filter by source |
+| `--session-id ID` | Export a specific session only |
+
+**`prune` flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--older-than N` | 90 | Delete sessions older than N days |
+| `--source PLATFORM` | | Only prune sessions from this source |
+| `--yes`, `-y` | | Skip confirmation |
+
+```bash
+hermes sessions list
+hermes sessions browse
+hermes sessions rename cli_abc123 "My project session"
+hermes sessions prune --older-than 30 --yes
+```
+
+---
+
+## Cron
+
+### `hermes cron`
+
+Manage scheduled tasks that run agent prompts on a schedule.
+
+```bash
+hermes cron <subcommand> [flags]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List scheduled jobs (`--all` to include disabled) |
+| `create` / `add` | Create a new scheduled job |
+| `edit JOB_ID` | Edit an existing job |
+| `pause JOB_ID` | Pause a job |
+| `resume JOB_ID` | Resume a paused job |
+| `run JOB_ID` | Trigger a job on the next scheduler tick |
+| `remove` / `rm` / `delete` | Remove a job |
+| `status` | Check if the cron scheduler is running |
+| `tick` | Run all due jobs once and exit (for debugging) |
+
+**`create` / `add` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `schedule` | Schedule string: `30m`, `every 2h`, or cron expression `0 9 * * *` |
+| `prompt` | Optional task instruction for the agent |
+| `--name NAME` | Human-friendly job name |
+| `--deliver TARGET` | Delivery target: `origin`, `local`, `telegram`, `discord`, `signal`, or `platform:chat_id` |
+| `--repeat N` | Optional repeat count |
+| `--skill NAME` | Attach a skill (repeatable) |
+
+```bash
+hermes cron list
+hermes cron create "every 1h" "Check my email and summarize unread messages" --name hourly-email
+hermes cron status
+```
+
+---
+
+## Skills
+
+### `hermes skills`
+
+Browse, search, install, and manage skill documents.
+
+```bash
+hermes skills <subcommand> [flags]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List installed skills |
+| `browse` | Browse all available skills (paginated) |
+| `search QUERY` | Search skill registries |
+| `install NAME` | Install a skill from a registry |
+| `inspect NAME` | Preview a skill without installing |
+| `check` | Check installed hub skills for updates |
+| `update` | Update installed hub skills |
+| `audit` | Re-scan installed hub skills |
+| `uninstall NAME` | Remove a hub-installed skill |
+| `publish` | Publish a skill to a registry |
+| `snapshot export FILE` | Export installed skills to a file |
+| `snapshot import FILE` | Import and install skills from a file |
+| `tap list` | List configured skill sources (taps) |
+| `tap add REPO` | Add a GitHub repo as a skill source |
+| `tap remove NAME` | Remove a tap |
+| `config` | Interactive skill configuration — enable/disable individual skills |
+
+---
+
+## Honcho
+
+### `hermes honcho`
+
+Configure and manage the Honcho AI-native cross-session memory integration.
+
+```bash
+hermes honcho <subcommand> [flags]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `setup` | Interactive setup wizard for Honcho |
+| `status` | Show current Honcho config and connection status |
+| `sessions` | List directory → session name mappings |
+| `map NAME` | Map the current directory to a Honcho session name |
+| `peer` | Show or set peer names and dialectic reasoning settings |
+| `mode [hybrid\|honcho\|local]` | Show or set the memory mode |
+| `tokens` | Show or set token budget settings |
+| `identity [FILE]` | Show or seed the AI peer identity from a file (e.g. `SOUL.md`) |
+| `migrate` | Step-by-step migration guide from OpenClaw native to Hermes + Honcho |
+
+**`peer` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--user NAME` | Set the user peer name |
+| `--ai NAME` | Set the AI peer name |
+| `--reasoning LEVEL` | Set dialectic reasoning level |
+
+**`tokens` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--context N` | Set the `session.context()` token cap |
+| `--dialectic N` | Set the dialectic result character cap |
+
+---
+
+## Other
+
+### `hermes whatsapp`
+
+Configure WhatsApp integration and pair via QR code.
+
+```bash
+hermes whatsapp
+```
+
+Interactive — walks you through choosing a mode (bot number or personal self-chat), setting allowed users, installing bridge dependencies, and scanning a QR code to pair.
+
+---
+
+### `hermes insights`
+
+Analyze session history to show token usage, costs, tool patterns, and activity trends.
+
+```bash
+hermes insights [--days N] [--source PLATFORM]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--days N` | 30 | Number of days to analyze |
+| `--source PLATFORM` | | Filter by platform |
+
+---
+
+### `hermes pairing`
+
+Manage DM pairing codes for user authorization on messaging platforms.
+
+```bash
+hermes pairing <subcommand>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | Show pending and approved users |
+| `approve PLATFORM CODE` | Approve a pairing code |
+| `revoke PLATFORM USER_ID` | Revoke a user's access |
+| `clear-pending` | Clear all pending codes |
+
+---
+
+### `hermes claw migrate`
+
+Migrate settings, memories, skills, and API keys from an OpenClaw installation.
+
+```bash
+hermes claw migrate [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--source PATH` | `~/.openclaw` | Path to OpenClaw directory |
+| `--dry-run` | | Preview changes without writing anything |
+| `--preset PRESET` | `full` | `full` or `user-data` (excludes secrets) |
+| `--overwrite` | | Overwrite existing files (default: skip conflicts) |
+| `--migrate-secrets` | | Include allowlisted secrets (bot tokens, API keys) |
+| `--workspace-target PATH` | | Absolute path to copy workspace instructions into |
+| `--skill-conflict ACTION` | `skip` | How to handle skill name conflicts: `skip`, `overwrite`, or `rename` |
+| `--yes`, `-y` | | Skip confirmation prompts |
+
+---
+
+### `hermes acp`
+
+Run Hermes Agent as an ACP (Agent Client Protocol) server for editor integration.
+
+```bash
+hermes acp
+```
+
+Used by VS Code, Zed, and JetBrains extensions. Requires the ACP dependencies (`pip install -e '.[acp]'`).
