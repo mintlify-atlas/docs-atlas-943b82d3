@@ -92,6 +92,18 @@ At least one provider must be configured for Hermes to start. Run `hermes setup`
   API key for [OpenCode Go](https://opencode.ai/auth) — $10/month subscription for open models (GLM-5, Kimi K2.5, MiniMax M2.5).
 </ParamField>
 
+<ParamField path="KILOCODE_API_KEY" type="string">
+  API key for [Kilo Code](https://kilo.ai/) gateway — access to Claude, GPT, and Gemini models.
+</ParamField>
+
+<ParamField path="AI_GATEWAY_API_KEY" type="string">
+  API key for [AI Gateway by Vercel](https://ai-gateway.vercel.sh/) — 200+ models, pay-per-use.
+</ParamField>
+
+<ParamField path="COPILOT_GITHUB_TOKEN" type="string">
+  GitHub token for GitHub Copilot access. Accepts OAuth tokens (`gho_*`), fine-grained PATs with Copilot Requests permission (`github_pat_*`), or GitHub App tokens (`ghu_*`). Classic PATs (`ghp_*`) are not supported. Set via `hermes model` → GitHub Copilot, or run `copilot login`.
+</ParamField>
+
 <ParamField path="HERMES_INFERENCE_PROVIDER" type="string">
   Override the inference provider at runtime without changing `config.yaml`. Accepted values: `auto`, `openrouter`, `nous`, `openai-codex`, `copilot`, `anthropic`, `zai`, `kimi-coding`, `minimax`, `minimax-cn`, `kilocode`, `custom`.
 </ParamField>

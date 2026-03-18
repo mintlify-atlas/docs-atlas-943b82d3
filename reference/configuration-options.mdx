@@ -45,7 +45,7 @@ memory:
   user_char_limit: 1375
 
 display:
-  skin: "default"                   # default | ares | mono | slate | <custom>
+  skin: "default"                   # default | ares | mono | slate | poseidon | sisyphus | charizard
   tool_progress: "all"              # off | new | all | verbose
   compact: false
   show_reasoning: false
@@ -53,7 +53,7 @@ display:
 
 compression:
   enabled: true
-  threshold: 0.85
+  threshold: 0.50
   summary_model: "google/gemini-3-flash-preview"
 
 approvals:
@@ -241,7 +241,7 @@ When a conversation approaches the model's context limit, middle turns are autom
 ## Display / Skin
 
 <ParamField path="display.skin" type="string" default="default">
-  Visual theme for the CLI. Built-in skins: `default` (gold/kawaii), `ares` (crimson/bronze), `mono` (grayscale), `slate` (blue developer). Drop custom YAML skins in `~/.hermes/skins/<name>.yaml`.
+  Visual theme for the CLI. Built-in skins: `default` (gold/kawaii), `ares` (crimson/bronze), `mono` (grayscale), `slate` (blue developer), `poseidon` (ocean blue), `sisyphus` (austere grayscale), `charizard` (volcanic orange). Drop custom YAML skins in `~/.hermes/skins/<name>.yaml` and activate with `/skin <name>`.
 </ParamField>
 
 <ParamField path="display.tool_progress" type="string" default="all">

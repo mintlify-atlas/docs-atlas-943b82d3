@@ -60,14 +60,10 @@ In-session:
 
     ```bash
     hermes login
+    # or: hermes model → select "Nous Portal"
     ```
 
-    Or use an API key — set `NOUS_API_KEY` in `~/.hermes/.env`. Set provider in config:
-
-    ```yaml
-    # ~/.hermes/config.yaml
-    model: "nous:hermes-3-llama-3.1-405b"
-    ```
+    The OAuth flow opens your browser for authentication and stores credentials locally in `~/.hermes/auth.json`. No API key needed — Hermes handles credential refresh automatically.
   </Tab>
 
   <Tab title="OpenRouter">
@@ -154,7 +150,6 @@ compression:
 # Display
 display:
   skin: "default"        # default | ares | mono | slate | poseidon | sisyphus | charizard
-  tool_progress: "all"   # off | new | all | verbose
   show_reasoning: false
   streaming: false
   compact: false
@@ -230,14 +225,13 @@ approvals:
   <Tab title="Display">
     ```yaml
     display:
-      skin: "default"        # default | ares | mono | slate | ...
+      skin: "default"        # default | ares | mono | slate | poseidon | sisyphus | charizard
       compact: false
-      tool_progress: "all"   # off | new | all | verbose
       show_reasoning: false
       streaming: false
       bell_on_complete: false
       show_cost: false
-      background_process_notifications: "all"  # all | result | error | off
+      personality: "kawaii"
     ```
   </Tab>
 
@@ -248,14 +242,6 @@ approvals:
       user_profile_enabled: true
       memory_char_limit: 2200   # ~800 tokens
       user_char_limit: 1375     # ~500 tokens
-      nudge_interval: 10        # Remind agent every N turns
-      flush_min_turns: 6        # Save memories before exit after N turns
-
-    # Messaging platform session resets
-    session_reset:
-      mode: both           # both | idle | daily | none
-      idle_minutes: 1440   # 24 hours
-      at_hour: 4           # Daily reset at 4 AM
     ```
   </Tab>
 </Tabs>
