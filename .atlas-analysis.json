@@ -1,0 +1,116 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Hermes Agent",
+  "projectDescription": "A self-improving AI agent with a built-in learning loop that runs anywhere — CLI, messaging platforms, or serverless infrastructure — supporting 200+ LLM models.",
+  "theme": "palm",
+  "primaryColor": "#FFD700",
+  "lightColor": "#FFF8DC",
+  "darkColor": "#B8860B",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "getting-started/quickstart",
+              "getting-started/installation",
+              "getting-started/first-conversation"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "user-guide/cli",
+              "user-guide/configuration",
+              "user-guide/messaging",
+              "user-guide/security"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "user-guide/features/tools",
+              "user-guide/features/skills",
+              "user-guide/features/memory",
+              "user-guide/features/mcp",
+              "user-guide/features/cron",
+              "user-guide/features/context-files",
+              "user-guide/features/terminal-backends"
+            ]
+          },
+          {
+            "group": "Developer Guide",
+            "pages": [
+              "developer-guide/architecture",
+              "developer-guide/adding-tools",
+              "developer-guide/adding-commands",
+              "developer-guide/contributing"
+            ]
+          },
+          {
+            "group": "Migration",
+            "pages": [
+              "migration/openclaw"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "reference/cli-commands",
+              "reference/slash-commands",
+              "reference/environment-variables",
+              "reference/configuration-options"
+            ]
+          },
+          {
+            "group": "Toolsets",
+            "pages": [
+              "reference/toolsets",
+              "reference/tools-list"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Self-improving learning loop with autonomous skill creation from experience",
+    "Multi-platform messaging gateway (Telegram, Discord, Slack, WhatsApp, Signal, Email)",
+    "40+ built-in tools including terminal, file ops, web search, browser automation, and code execution",
+    "Support for 200+ LLM models via OpenRouter, Anthropic, OpenAI, and custom endpoints",
+    "Six terminal backends: local, Docker, SSH, Daytona, Singularity, and Modal (serverless)",
+    "FTS5 full-text session search with LLM summarization for cross-session recall",
+    "MCP (Model Context Protocol) server integration for extended capabilities",
+    "Built-in cron scheduler for scheduled automations delivered to any platform",
+    "Subagent delegation for parallel workstreams",
+    "Honcho dialectic user modeling for persistent user profiles"
+  ],
+  "publicApiSurface": [
+    "hermes — start interactive CLI conversation",
+    "hermes model — choose LLM provider and model",
+    "hermes tools — configure enabled tools",
+    "hermes config set — set individual config values",
+    "hermes gateway — start messaging gateway",
+    "hermes setup — run full setup wizard",
+    "hermes claw migrate — migrate from OpenClaw",
+    "hermes update — update to latest version",
+    "hermes doctor — diagnose issues",
+    "AIAgent.chat(message: str) -> str",
+    "AIAgent.run_conversation(user_message, system_message, conversation_history, task_id) -> dict",
+    "/new, /reset — start fresh session",
+    "/model [provider:model] — change model mid-session",
+    "/skills — search, install, manage skills",
+    "/cron — manage scheduled tasks",
+    "/compress — compress conversation context",
+    "/background <prompt> — run prompt in background",
+    "registry.register(name, toolset, schema, handler, check_fn) — register a new tool"
+  ]
+}
